@@ -1,0 +1,41 @@
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+import { ExtractionStatus } from '../../../entities/extraction-item.entity';
+
+export class ReflectRequestDto {
+  @IsString()
+  @IsNotEmpty()
+  text: string;
+}
+
+export class ApplyRunDto {
+  /** Optional subset of extraction item ids to materialise. */
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  item_ids?: string[];
+}
+
+export class ReviewItemDto {
+  @IsIn([ExtractionStatus.approved, ExtractionStatus.rejected], {
+    message: 'status must be one of: approved, rejected',
+  })
+  status: ExtractionStatus.approved | ExtractionStatus.rejected;
+}
+
+export class ListRunsQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  limit = 20;
+
+  @IsOptional()
+  @Type(() => Number)
+  offset = 0;
+}

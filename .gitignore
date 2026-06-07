@@ -1,0 +1,27 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node / NestJS
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js (frontend)
+.next/
+out/
+next-env.d.ts
+.vercel/
+
+# Local model cache (@xenova/transformers)
+.transformers-cache/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
