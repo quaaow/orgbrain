@@ -39,4 +39,8 @@ export const envValidationSchema = Joi.object({
   CORS_ORIGINS: Joi.string().optional().allow(''),
   // Per-org daily Reflect cap (LLM cost guard). 0 disables the limit.
   REFLECT_DAILY_LIMIT: Joi.number().integer().min(0).default(50),
+
+  // Sentry error monitoring. Leave empty to disable (no events are sent).
+  SENTRY_DSN: Joi.string().uri().optional().allow(''),
+  SENTRY_TRACES_SAMPLE_RATE: Joi.number().min(0).max(1).default(0.1),
 });

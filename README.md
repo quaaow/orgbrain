@@ -156,6 +156,7 @@ Required environment variables (see `backend/.env.example`):
 | `APP_ENV`            | `development` \| `staging` \| `production`                    |
 | `SECRET_KEY`         | App secret                                                    |
 | `PORT`               | Listen port (default `8000`; set automatically on Railway)    |
+| `SENTRY_DSN`         | Sentry error monitoring (optional; inert when empty)          |
 
 > Outside production, TypeORM `synchronize` is enabled and will create tables on
 > first boot. In production it is disabled — see the migrations note in
@@ -177,6 +178,7 @@ Frontend environment variables (all `NEXT_PUBLIC_*`, inlined at build time):
 | `NEXT_PUBLIC_API_URL`           | Backend base URL                 |
 | `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL             |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key                |
+| `NEXT_PUBLIC_SENTRY_DSN`        | Sentry monitoring (optional)     |
 
 ## Deployment
 

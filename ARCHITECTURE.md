@@ -266,7 +266,10 @@ from silently rotting.
 
 🔭 **Platform & ops**
 
-- **Observability** — structured logging, metrics, tracing, error reporting.
+- **Observability** — Sentry error monitoring is wired into both apps
+  (backend unhandled/5xx errors with org/user context; frontend client, server
+  and global render errors), gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`.
+  Still to add: structured logging, metrics and distributed tracing.
 - **Caching** — cache embeddings/search results for hot queries.
 - **Secrets** — `SECRET_KEY` has been rotated to a strong random value in
   production. Note it is currently unused by application logic (access tokens are

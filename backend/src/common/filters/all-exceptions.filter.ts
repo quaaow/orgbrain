@@ -6,7 +6,13 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { Request, Response } from 'express';
+
+interface AuthedRequest extends Request {
+  orgContext?: { orgId?: string };
+  user?: { userId?: string; sub?: string };
+}
 
 interface ErrorBody {
   statusCode: number;
@@ -29,7 +35,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<AuthedRequest>();
 
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let error = 'Internal Server Error';
@@ -55,6 +61,23 @@ export class AllExceptionsFilter implements ExceptionFilter {
         `Unhandled exception on ${request.method} ${request.url}: ${err?.message}`,
         err?.stack,
       );
+    }
+
+    // Report genuine server-side failures (unhandled errors and 5xx) to Sentry
+    // with a minimal, explicit context. Expected 4xx (validation, auth, quota)
+    // are intentionally left out to keep the signal clean. No-op without a DSN.
+    if (statusCode >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      Sentry.withScope((scope) => {
+        const userId = request.user?.userId ?? request.user?.sub;
+        const orgId = request.orgContext?.orgId;
+        if (userId) scope.setUser({ id: userId });
+        if (orgId) scope.setTag('org_id', orgId);
+        scope.setContext('request', {
+          method: request.method,
+          path: request.url,
+        });
+        Sentry.captureException(exception);
+      });
     }
 
     const body: ErrorBody = {

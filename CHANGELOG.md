@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Sentry error monitoring for backend (`@sentry/nestjs`) and frontend
+  (`@sentry/nextjs`). The backend reports unhandled errors and 5xx responses
+  with org/user context (no request bodies or PII); the frontend captures
+  client, server-component and global render errors. Fully opt-in via
+  `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` (inert when unset).
 - Per-organisation daily Reflect quota (`REFLECT_DAILY_LIMIT`, default 50) that
   rejects with HTTP 429 before any paid LLM calls — a cost guard against abuse.
 - Frontend members management page (`/members`): invite by email, change roles

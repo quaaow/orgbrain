@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { SentryModule } from '@sentry/nestjs/setup';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { OrgThrottlerGuard } from './common/throttler/org-throttler.guard';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -21,6 +22,7 @@ import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     AppConfigModule,
     DatabaseModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
