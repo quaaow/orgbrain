@@ -34,4 +34,9 @@ export const envValidationSchema = Joi.object({
   SECRET_KEY: Joi.string().required(),
 
   PORT: Joi.number().default(8000),
+
+  // Optional comma-separated CORS allow-list (e.g. https://app.example.com).
+  CORS_ORIGINS: Joi.string().optional().allow(''),
+  // Per-org daily Reflect cap (LLM cost guard). 0 disables the limit.
+  REFLECT_DAILY_LIMIT: Joi.number().integer().min(0).default(50),
 });

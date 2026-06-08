@@ -11,6 +11,7 @@ const LINKS = [
   { href: '/decisions', label: 'Decisions' },
   { href: '/reflect', label: 'Reflect' },
   { href: '/graph', label: 'Graph' },
+  { href: '/members', label: 'Members' },
 ];
 
 export function Nav() {

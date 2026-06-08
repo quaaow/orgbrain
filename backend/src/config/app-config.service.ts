@@ -71,6 +71,16 @@ export class AppConfigService {
     return this.config.get('port', { infer: true });
   }
 
+  /** Allowed browser origins for CORS, or null to reflect any origin. */
+  get corsOrigins(): string[] | null {
+    return this.config.get('corsOrigins', { infer: true });
+  }
+
+  /** Max Reflect runs per organisation per UTC day (0 disables the cap). */
+  get reflectDailyLimit(): number {
+    return this.config.get('reflectDailyLimit', { infer: true });
+  }
+
   get isProduction(): boolean {
     return this.appEnv === 'production';
   }

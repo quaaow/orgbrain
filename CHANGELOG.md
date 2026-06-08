@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Per-organisation daily Reflect quota (`REFLECT_DAILY_LIMIT`, default 50) that
+  rejects with HTTP 429 before any paid LLM calls — a cost guard against abuse.
+- Frontend members management page (`/members`): invite by email, change roles
+  and remove members, with controls gated to admins/owners.
 - API-key authentication for programmatic (SDK / MCP) access: org-scoped,
   role-bounded keys (`x-api-key` header), with `POST/GET/DELETE /api-keys`
   management endpoints (admin only). Raw keys are shown once and stored only as
@@ -36,6 +40,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Rate limiting is now scoped per organisation (falling back to client IP)
   instead of a single global bucket, so one noisy org no longer throttles
   everyone.
+- CORS is now restricted to a configurable allow-list (`CORS_ORIGINS`) instead
+  of `*`; when unset the API reflects the request origin without credentials
+  (safe for header-based auth) and warns in production.
 
 ### Security
 - Rotated `SECRET_KEY` in the production environment to a strong random value.

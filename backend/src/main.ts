@@ -8,11 +8,22 @@ import { AppConfigService } from './config/app-config.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const bootConfig = app.get(AppConfigService);
+  const corsOrigins = bootConfig.corsOrigins;
+  if (!corsOrigins && bootConfig.isProduction) {
+    Logger.warn(
+      'CORS_ORIGINS is not set — the API accepts requests from any origin. Set it to your frontend domain(s) in production.',
+      'Bootstrap',
+    );
+  }
   app.enableCors({
-    origin: '*',
-    credentials: true,
-    methods: '*',
-    allowedHeaders: '*',
+    // With an allow-list we enable credentials; otherwise reflect any origin.
+    // Auth uses the Authorization/X-Api-Key headers (no cookies), so an open
+    // origin without credentials is not a CSRF risk.
+    origin: corsOrigins ?? true,
+    credentials: Boolean(corsOrigins),
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Org-Id', 'X-Api-Key'],
   });
 
   app.useGlobalPipes(

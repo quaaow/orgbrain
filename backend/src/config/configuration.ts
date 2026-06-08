@@ -12,6 +12,8 @@ export interface AppConfig {
   appEnv: string;
   secretKey: string;
   port: number;
+  corsOrigins: string[] | null;
+  reflectDailyLimit: number;
 }
 
 export default (): AppConfig => ({
@@ -31,4 +33,13 @@ export default (): AppConfig => ({
   appEnv: process.env.APP_ENV ?? 'development',
   secretKey: process.env.SECRET_KEY as string,
   port: parseInt(process.env.PORT ?? '8000', 10),
+  // Comma-separated allow-list of browser origins. Unset = reflect any origin
+  // (safe here since auth is via the Authorization header, not cookies).
+  corsOrigins: process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null,
+  // Max Reflect runs per organisation per UTC day (LLM cost guard). <=0 = off.
+  reflectDailyLimit: parseInt(process.env.REFLECT_DAILY_LIMIT ?? '50', 10),
 });

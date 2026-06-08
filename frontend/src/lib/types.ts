@@ -16,6 +16,14 @@ export interface Organization {
   created_at?: string | null;
 }
 
+export interface Member {
+  user_id: string;
+  email: string | null;
+  name?: string | null;
+  role: Role;
+  created_at?: string | null;
+}
+
 export type KnowledgeType = 'fact' | 'document' | 'note' | 'policy';
 
 export interface Knowledge {

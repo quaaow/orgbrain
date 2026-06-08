@@ -1,12 +1,14 @@
 import {
   BadGatewayException,
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Knowledge,
@@ -126,7 +128,31 @@ export class ReflectionService {
 
   // ── Extraction (staging) ────────────────────────────────────────────────
 
+  /**
+   * Enforce a per-organisation daily cap on Reflect runs before any (paid) LLM
+   * calls are made. Throws 429 once the limit for the current UTC day is hit.
+   */
+  private async assertWithinDailyQuota(orgId: string): Promise<void> {
+    const limit = this.config.reflectDailyLimit;
+    if (limit <= 0) {
+      return;
+    }
+    const startOfDay = new Date();
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const used = await this.runRepo.count({
+      where: { orgId, createdAt: MoreThanOrEqual(startOfDay) },
+    });
+    if (used >= limit) {
+      throw new HttpException(
+        `Daily Reflect limit reached (${limit}/day for this organisation). Try again tomorrow or contact support to raise it.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
   async reflect(dto: ReflectRequestDto, orgId: string, userId: string | null) {
+    await this.assertWithinDailyQuota(orgId);
+
     const chunks = chunkText(dto.text);
     if (chunks.length === 0) {
       throw new BadRequestException('Text is empty');
