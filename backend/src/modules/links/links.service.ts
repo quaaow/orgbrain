@@ -170,18 +170,21 @@ export class LinksService {
         type: LinkNodeType.knowledge,
         label: k.title,
         subtype: k.type,
+        content: k.content.slice(0, 300),
       })),
       ...decisions.map((d) => ({
         id: d.id,
         type: LinkNodeType.decision,
         label: d.title,
         subtype: d.status,
+        content: `${d.reason.slice(0, 200)}${d.outcome ? ` → ${d.outcome.slice(0, 200)}` : ''}`,
       })),
       ...lessons.map((l) => ({
         id: l.id,
         type: LinkNodeType.lesson,
         label: l.problem.slice(0, 120),
         subtype: null,
+        content: l.solution ? l.solution.slice(0, 300) : l.problem.slice(0, 300),
       })),
     ];
 

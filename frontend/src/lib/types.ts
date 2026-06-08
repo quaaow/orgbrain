@@ -121,6 +121,7 @@ export interface GraphNode {
   type: GraphNodeType;
   label: string;
   subtype: string | null;
+  content?: string;
 }
 
 export interface GraphEdge {

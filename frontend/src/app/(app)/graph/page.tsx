@@ -37,6 +37,7 @@ export default function GraphPage() {
   const [loading, setLoading] = useState(true);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -74,6 +75,11 @@ export default function GraphPage() {
       width: LEFT + 2 * COL_W + 80,
     };
   }, [data]);
+
+  const hoveredNode = useMemo(
+    () => positioned.find((n) => n.id === hoveredNodeId) ?? null,
+    [hoveredNodeId, positioned],
+  );
 
   // Fullscreen
   const toggleFullscreen = useCallback(() => {
@@ -144,19 +150,22 @@ export default function GraphPage() {
     dragStart.current = { x: e.clientX, y: e.clientY, vbX: viewBox.x, vbY: viewBox.y };
   }, [viewBox]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging.current) return;
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const scaleX = viewBox.w / rect.width;
-    const scaleY = viewBox.h / rect.height;
-    setViewBox((prev) => ({
-      ...prev,
-      x: dragStart.current.vbX - (e.clientX - dragStart.current.x) * scaleX,
-      y: dragStart.current.vbY - (e.clientY - dragStart.current.y) * scaleY,
-    }));
-  }, [viewBox]);
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging.current) return;
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const scaleX = viewBox.w / rect.width;
+      const scaleY = viewBox.h / rect.height;
+      setViewBox((prev) => ({
+        ...prev,
+        x: dragStart.current.vbX - (e.clientX - dragStart.current.x) * scaleX,
+        y: dragStart.current.vbY - (e.clientY - dragStart.current.y) * scaleY,
+      }));
+    },
+    [viewBox],
+  );
 
   const handleMouseUp = useCallback(() => {
     isDragging.current = false;
@@ -179,6 +188,62 @@ export default function GraphPage() {
     return { connectedEdgeIds: edgeIds, connectedNodeIds: nodeIds };
   }, [hoveredNodeId, data]);
 
+  // Compute tooltip position in container pixels
+  const computeTooltipPos = useCallback(
+    (nx: number, ny: number) => {
+      const container = containerRef.current;
+      const svg = svgRef.current;
+      if (!container || !svg) return null;
+      const containerRect = container.getBoundingClientRect();
+      const svgRect = svg.getBoundingClientRect();
+      const scaleX = svgRect.width / viewBox.w;
+      const scaleY = svgRect.height / viewBox.h;
+      const px = (nx - viewBox.x) * scaleX;
+      const py = (ny - viewBox.y) * scaleY;
+      return {
+        x: px + (svgRect.left - containerRect.left),
+        y: py + (svgRect.top - containerRect.top),
+      };
+    },
+    [viewBox],
+  );
+
+  const handleNodeEnter = useCallback(
+    (n: Positioned) => {
+      setHoveredNodeId(n.id);
+      const pos = computeTooltipPos(n.x, n.y);
+      setTooltipPos(pos);
+    },
+    [computeTooltipPos],
+  );
+
+  const handleNodeLeave = useCallback(() => {
+    setHoveredNodeId(null);
+    setTooltipPos(null);
+  }, []);
+
+  // Recalculate tooltip position on zoom/pan while hovered
+  useEffect(() => {
+    if (hoveredNode) {
+      const pos = computeTooltipPos(hoveredNode.x, hoveredNode.y);
+      setTooltipPos(pos);
+    }
+  }, [hoveredNode, viewBox, computeTooltipPos]);
+
+  // Tooltip smart positioning
+  const tooltipStyle = useMemo(() => {
+    if (!tooltipPos || !containerRef.current) return {};
+    const containerW = containerRef.current.clientWidth;
+    const containerH = containerRef.current.clientHeight;
+    const tooltipW = 280;
+    const tooltipH = 160; // approximate max
+    let left = tooltipPos.x + 18;
+    let top = tooltipPos.y + 18;
+    if (left + tooltipW > containerW) left = tooltipPos.x - tooltipW - 18;
+    if (top + tooltipH > containerH) top = tooltipPos.y - tooltipH - 18;
+    return { left, top };
+  }, [tooltipPos]);
+
   if (!activeOrgId) {
     return <p className="text-white/50">Select or create an organisation first.</p>;
   }
@@ -189,9 +254,7 @@ export default function GraphPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Knowledge graph</h1>
-            <p className="mt-1 text-white/50">
-              How facts, decisions and lessons connect.
-            </p>
+            <p className="mt-1 text-white/50">How facts, decisions and lessons connect.</p>
           </div>
           {data && (
             <div className="text-sm text-white/50">
@@ -307,7 +370,12 @@ export default function GraphPage() {
                       y={my - 5}
                       textAnchor="middle"
                       className="select-none"
-                      style={{ fontSize: 9, fill: isConnected ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', transition: 'all 0.2s', opacity: isDimmed ? 0.15 : 1 }}
+                      style={{
+                        fontSize: 9,
+                        fill: isConnected ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)',
+                        transition: 'all 0.2s',
+                        opacity: isDimmed ? 0.15 : 1,
+                      }}
                     >
                       {e.relation}
                     </text>
@@ -318,8 +386,12 @@ export default function GraphPage() {
               {/* Nodes */}
               {positioned.map((n, i) => {
                 const isHovered = hoveredNodeId === n.id;
-                const isConnected = hoveredNodeId ? (n.id === hoveredNodeId || connectedNodeIds.has(n.id)) : false;
-                const isDimmed = hoveredNodeId ? (!isConnected && n.id !== hoveredNodeId) : false;
+                const isConnected = hoveredNodeId
+                  ? n.id === hoveredNodeId || connectedNodeIds.has(n.id)
+                  : false;
+                const isDimmed = hoveredNodeId
+                  ? !isConnected && n.id !== hoveredNodeId
+                  : false;
                 return (
                   <motion.g
                     key={n.id}
@@ -327,8 +399,8 @@ export default function GraphPage() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.4, delay: 0.2 + i * 0.04, ease: 'easeOut' }}
                     className="cursor-pointer"
-                    onMouseEnter={() => setHoveredNodeId(n.id)}
-                    onMouseLeave={() => setHoveredNodeId(null)}
+                    onMouseEnter={() => handleNodeEnter(n)}
+                    onMouseLeave={handleNodeLeave}
                   >
                     {/* Glow ring on hover */}
                     {isHovered && (
@@ -367,39 +439,39 @@ export default function GraphPage() {
                     >
                       {n.label.length > 36 ? n.label.slice(0, 36) + '…' : n.label}
                     </text>
-                    {/* Tooltip on hover */}
-                    {isHovered && (
-                      <g>
-                        <rect
-                          x={n.x + 14}
-                          y={n.y + 14}
-                          width={120}
-                          height={36}
-                          rx={6}
-                          fill="rgba(15,15,18,0.95)"
-                          stroke="rgba(255,255,255,0.1)"
-                          strokeWidth={1}
-                        />
-                        <text
-                          x={n.x + 22}
-                          y={n.y + 28}
-                          style={{ fontSize: 10, fill: 'rgba(255,255,255,0.6)' }}
-                        >
-                          {n.type}
-                        </text>
-                        <text
-                          x={n.x + 22}
-                          y={n.y + 42}
-                          style={{ fontSize: 11, fill: 'rgba(255,255,255,0.9)' }}
-                        >
-                          {n.label.length > 24 ? n.label.slice(0, 24) + '…' : n.label}
-                        </text>
-                      </g>
-                    )}
                   </motion.g>
                 );
               })}
             </svg>
+
+            {/* HTML Tooltip */}
+            {hoveredNode && tooltipPos && (
+              <div
+                className="pointer-events-none absolute z-10 w-[260px] rounded-lg border border-white/10 bg-[#0f0f12]/95 p-3 shadow-2xl backdrop-blur-md"
+                style={tooltipStyle}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ background: NODE_COLOR[hoveredNode.type] }}
+                  />
+                  <span className="text-[10px] uppercase tracking-wider text-white/50">
+                    {hoveredNode.type}
+                  </span>
+                  {hoveredNode.subtype && (
+                    <span className="ml-auto text-[10px] text-white/30">{hoveredNode.subtype}</span>
+                  )}
+                </div>
+                <div className="mt-1.5 text-sm font-medium leading-snug text-white/90">
+                  {hoveredNode.label}
+                </div>
+                {hoveredNode.content && (
+                  <div className="mt-1.5 text-[11px] leading-relaxed text-white/50 line-clamp-5">
+                    {hoveredNode.content}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Hint */}
             <div className="pointer-events-none absolute bottom-3 left-3 text-[10px] text-white/30">
@@ -451,10 +523,7 @@ export default function GraphPage() {
 function Legend({ color, label }: { color: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5 text-white/60">
-      <span
-        className="inline-block h-2.5 w-2.5 rounded-full"
-        style={{ background: color }}
-      />
+      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: color }} />
       {label}
     </span>
   );
