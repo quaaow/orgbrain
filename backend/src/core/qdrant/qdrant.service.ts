@@ -3,7 +3,7 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import { validate as isUuid } from 'uuid';
 import { AppConfigService } from '../../config/app-config.service';
 
-export const COLLECTION_NAME = 'orgbrain_knowledge';
+export const DEFAULT_COLLECTION_NAME = 'orgbrain_knowledge';
 export const VECTOR_DIM = 384;
 const DISTANCE = 'Cosine';
 
@@ -28,6 +28,11 @@ export class QdrantService implements OnModuleInit {
 
   constructor(private readonly config: AppConfigService) {}
 
+  /** Environment-scoped collection name (isolates dev/staging from prod). */
+  private get collection(): string {
+    return this.config.qdrantCollection;
+  }
+
   private getClient(): QdrantClient {
     if (!this.client) {
       this.client = new QdrantClient({
@@ -42,21 +47,21 @@ export class QdrantService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     const client = this.getClient();
     try {
-      const { exists } = await client.collectionExists(COLLECTION_NAME);
+      const { exists } = await client.collectionExists(this.collection);
       if (!exists) {
-        await client.createCollection(COLLECTION_NAME, {
+        await client.createCollection(this.collection, {
           vectors: { size: VECTOR_DIM, distance: DISTANCE },
         });
-        this.logger.log(`Qdrant collection '${COLLECTION_NAME}' created`);
+        this.logger.log(`Qdrant collection '${this.collection}' created`);
       } else {
         this.logger.log(
-          `Qdrant collection '${COLLECTION_NAME}' already exists`,
+          `Qdrant collection '${this.collection}' already exists`,
         );
       }
 
       // Filtering by org_id requires a keyword payload index. Creating an
       // already-existing index is a no-op, so this is safe on every startup.
-      await client.createPayloadIndex(COLLECTION_NAME, {
+      await client.createPayloadIndex(this.collection, {
         field_name: 'org_id',
         field_schema: 'keyword',
         wait: true,
@@ -89,7 +94,7 @@ export class QdrantService implements OnModuleInit {
     payload: Record<string, unknown>,
   ): Promise<void> {
     const client = this.getClient();
-    await client.upsert(COLLECTION_NAME, {
+    await client.upsert(this.collection, {
       wait: true,
       points: [{ id: this.toPointId(id), vector, payload }],
     });
@@ -103,7 +108,7 @@ export class QdrantService implements OnModuleInit {
     filter?: QdrantFilter,
   ): Promise<ScoredPoint[]> {
     const client = this.getClient();
-    const response = await client.query(COLLECTION_NAME, {
+    const response = await client.query(this.collection, {
       query: vector,
       limit: topK,
       filter,
@@ -115,7 +120,7 @@ export class QdrantService implements OnModuleInit {
   /** Remove a point from the collection by ID. */
   async delete(id: string): Promise<void> {
     const client = this.getClient();
-    await client.delete(COLLECTION_NAME, {
+    await client.delete(this.collection, {
       wait: true,
       points: [this.toPointId(id)],
     });
@@ -130,7 +135,7 @@ export class QdrantService implements OnModuleInit {
   /** Lightweight connectivity check used by the deep health endpoint. */
   async healthCheck(): Promise<boolean> {
     try {
-      await this.getClient().collectionExists(COLLECTION_NAME);
+      await this.getClient().collectionExists(this.collection);
       return true;
     } catch {
       return false;

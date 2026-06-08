@@ -41,6 +41,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Rotated `SECRET_KEY` in the production environment to a strong random value.
 - Removed the real Supabase URL/anon key from the CI workflow; builds now use
   harmless placeholders (overridable via repository Variables).
+- Environment isolation: TypeORM schema auto-sync now requires an explicit
+  `DB_SYNCHRONIZE=true` opt-in and is force-disabled in production, so a dev
+  process can no longer mutate a shared/production database by accident (a loud
+  warning is logged when it is enabled). Qdrant collection is now configurable
+  via `QDRANT_COLLECTION` to keep dev/staging vectors out of production. Added
+  `docs/ENVIRONMENTS.md` describing the dev/prod split.
 
 ## [0.1.0] - 2026-06-08
 

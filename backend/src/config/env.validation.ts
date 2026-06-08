@@ -16,9 +16,12 @@ export const envValidationSchema = Joi.object({
   SUPABASE_KEY: Joi.string().required(),
 
   DATABASE_URL: notPlaceholder('DATABASE_URL'),
+  // Opt-in schema auto-sync; keep off everywhere except a throwaway dev DB.
+  DB_SYNCHRONIZE: Joi.boolean().truthy('true').falsy('false').default(false),
 
   QDRANT_URL: notPlaceholder('QDRANT_URL'),
   QDRANT_API_KEY: Joi.string().required(),
+  QDRANT_COLLECTION: Joi.string().default('orgbrain_knowledge'),
 
   OPENROUTER_API_KEY: Joi.string().required(),
 

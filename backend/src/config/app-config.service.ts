@@ -42,6 +42,11 @@ export class AppConfigService {
     return this.config.get('qdrantApiKey', { infer: true });
   }
 
+  /** Qdrant collection name (env-scoped to isolate dev/staging from prod). */
+  get qdrantCollection(): string {
+    return this.config.get('qdrantCollection', { infer: true });
+  }
+
   get openrouterApiKey(): string {
     return this.config.get('openrouterApiKey', { infer: true });
   }
@@ -68,6 +73,16 @@ export class AppConfigService {
 
   get isProduction(): boolean {
     return this.appEnv === 'production';
+  }
+
+  /**
+   * Whether TypeORM should auto-create/alter the schema from entities. Requires
+   * an explicit `DB_SYNCHRONIZE=true` opt-in and is force-disabled in
+   * production, so pointing a dev process at a shared DB can never mutate it by
+   * accident.
+   */
+  get dbSynchronize(): boolean {
+    return this.config.get('dbSynchronize', { infer: true }) && !this.isProduction;
   }
 
   /**
