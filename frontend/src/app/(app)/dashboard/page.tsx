@@ -81,7 +81,7 @@ export default function OverviewPage() {
             </div>
           </Card>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <QuickLink
               href="/search"
               title="Search"
@@ -93,9 +93,24 @@ export default function OverviewPage() {
               desc="Why we decided things"
             />
             <QuickLink
+              href="/lessons"
+              title="Lessons"
+              desc="What we learned"
+            />
+            <QuickLink
               href="/reflect"
               title="Reflect"
               desc="Extract knowledge from text"
+            />
+            <QuickLink
+              href="/graph"
+              title="Graph"
+              desc="Visualise connections"
+            />
+            <QuickLink
+              href="/api-keys"
+              title="API Keys"
+              desc="Programmatic access"
             />
           </div>
 

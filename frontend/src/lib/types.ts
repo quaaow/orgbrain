@@ -63,6 +63,17 @@ export interface Decision {
   created_at: string | null;
 }
 
+export interface Lesson {
+  id: string;
+  problem: string;
+  solution: string;
+  result: string | null;
+  confidence: number;
+  decision_id: string | null;
+  source: string;
+  created_at: string | null;
+}
+
 export type ExtractionKind = 'fact' | 'decision' | 'lesson';
 export type ExtractionStatus =
   | 'pending'
@@ -125,4 +136,13 @@ export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
   counts: { nodes: number; edges: number };
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  role: Role;
+  created_at: string | null;
+  revoked_at: string | null;
 }

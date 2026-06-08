@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ExtractionStatus } from '../../../entities/extraction-item.entity';
@@ -18,6 +19,9 @@ export class ReflectRequestDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(15000, {
+    message: 'Text is too long. Maximum 15000 characters (~3000 words). Split into smaller parts.',
+  })
   text: string;
 }
 

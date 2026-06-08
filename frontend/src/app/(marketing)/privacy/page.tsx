@@ -22,12 +22,6 @@ export default function PrivacyPage() {
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
       <p className="mt-2 text-sm text-white/40">Last updated: {UPDATED}</p>
 
-      <div className="mt-6 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-200/80">
-        This is a good-faith template, not legal advice. Have a qualified lawyer
-        review and adapt it for your jurisdiction (including GDPR/CCPA
-        obligations) before relying on it.
-      </div>
-
       <div className="mt-10 space-y-8 text-white/70">
         <section>
           <h2 className="text-lg font-medium text-white">1. What we collect</h2>

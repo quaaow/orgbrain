@@ -8,5 +8,6 @@ import { DecisionService } from './decision.service';
   imports: [TypeOrmModule.forFeature([Decision])],
   controllers: [DecisionController],
   providers: [DecisionService],
+  exports: [DecisionService],
 })
 export class DecisionModule {}

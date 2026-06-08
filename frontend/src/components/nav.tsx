@@ -9,9 +9,11 @@ const LINKS = [
   { href: '/dashboard', label: 'Overview' },
   { href: '/search', label: 'Search' },
   { href: '/decisions', label: 'Decisions' },
+  { href: '/lessons', label: 'Lessons' },
   { href: '/reflect', label: 'Reflect' },
   { href: '/graph', label: 'Graph' },
   { href: '/members', label: 'Members' },
+  { href: '/api-keys', label: 'API Keys' },
 ];
 
 export function Nav() {

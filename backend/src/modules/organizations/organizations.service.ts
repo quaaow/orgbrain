@@ -11,6 +11,7 @@ import { Organization } from '../../entities/organization.entity';
 import { Membership, Role, ROLE_RANK } from '../../entities/membership.entity';
 import { UsersService } from '../../auth/users.service';
 import { AddMemberDto } from './dto/organization.dto';
+import { DemoSeedService } from './demo-seed.service';
 
 @Injectable()
 export class OrganizationsService {
@@ -21,6 +22,7 @@ export class OrganizationsService {
     private readonly memberships: Repository<Membership>,
     private readonly users: UsersService,
     private readonly dataSource: DataSource,
+    private readonly demoSeed: DemoSeedService,
   ) {}
 
   /** Create an organisation and make the caller its owner. */
@@ -36,6 +38,15 @@ export class OrganizationsService {
       );
       return created;
     });
+
+    // Seed demo data asynchronously so the request returns quickly.
+    // If seed fails the org is still usable.
+    try {
+      await this.demoSeed.seed(org.id, userId);
+    } catch {
+      // swallow — logged inside DemoSeedService
+    }
+
     return { ...org.toDict(), role: Role.owner };
   }
 

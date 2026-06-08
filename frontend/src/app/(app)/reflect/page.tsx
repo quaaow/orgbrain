@@ -24,11 +24,13 @@ const STATUS_TONE: Record<
 
 export default function ReflectPage() {
   const { activeOrgId } = useSession();
+  const MAX_CHARS = 15000;
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<ReflectionRun[]>([]);
   const [openRun, setOpenRun] = useState<string | null>(null);
+  const overLimit = text.length > MAX_CHARS;
 
   const loadRuns = useCallback(async () => {
     if (!activeOrgId) return;
@@ -54,11 +56,14 @@ export default function ReflectPage() {
       await loadRuns();
       setOpenRun(res.run.id);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Reflect failed (LLM may be rate-limited)',
-      );
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('15000')) {
+        setError('Text is too long. Maximum 15000 characters (~3000 words). Split into smaller parts.');
+      } else {
+        setError(
+          msg || 'Reflect failed (LLM may be rate-limited)',
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -86,9 +91,17 @@ export default function ReflectPage() {
           placeholder="Paste raw text here…"
           className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm outline-none focus:border-indigo-400"
         />
+        <div className="mt-2 flex items-center justify-between text-xs">
+          <span className={overLimit ? 'text-red-400' : 'text-white/40'}>
+            {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} characters
+          </span>
+          {overLimit && (
+            <span className="text-red-400">Text is too long. Split into smaller parts.</span>
+          )}
+        </div>
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
         <div className="mt-3">
-          <Button onClick={runReflect} disabled={busy || !text.trim()}>
+          <Button onClick={runReflect} disabled={busy || !text.trim() || overLimit}>
             {busy ? 'Extracting…' : 'Extract'}
           </Button>
         </div>
