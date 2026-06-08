@@ -15,7 +15,7 @@ export default function OverviewPage() {
   const [error, setError] = useState<string | null>(null);
 
   const activeMembership = memberships.find(
-    (m) => m.organization_id === activeOrgId,
+    (m) => m.organization.id === activeOrgId,
   );
 
   async function createOrg(e: React.FormEvent) {
@@ -72,7 +72,7 @@ export default function OverviewPage() {
               <div>
                 <div className="text-sm text-white/50">Active organisation</div>
                 <div className="text-lg font-medium">
-                  {activeMembership?.organization?.name ?? activeOrgId}
+                  {activeMembership?.organization.name ?? activeOrgId}
                 </div>
               </div>
               <div className="text-sm text-white/50">

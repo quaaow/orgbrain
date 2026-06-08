@@ -1,13 +1,12 @@
 export type Role = 'owner' | 'admin' | 'member' | 'viewer';
 
 export interface Membership {
-  organization_id: string;
+  organization: { id: string; name?: string | null };
   role: Role;
-  organization?: { id: string; name: string } | null;
 }
 
 export interface Me {
-  user: { userId: string; email: string | null };
+  user: { id: string; email: string | null; name?: string | null };
   memberships: Membership[];
 }
 

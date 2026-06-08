@@ -50,12 +50,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           ? window.localStorage.getItem(ORG_KEY)
           : null;
       const valid = data.memberships.find(
-        (m) => m.organization_id === stored,
+        (m) => m.organization.id === stored,
       );
-      if (valid) {
+      if (valid && stored) {
         setActiveOrgIdState(stored);
       } else if (data.memberships.length > 0) {
-        setActiveOrgId(data.memberships[0].organization_id);
+        setActiveOrgId(data.memberships[0].organization.id);
       } else {
         setActiveOrgIdState(null);
       }

@@ -57,11 +57,11 @@ export function Nav() {
             >
               {memberships.map((m) => (
                 <option
-                  key={m.organization_id}
-                  value={m.organization_id}
+                  key={m.organization.id}
+                  value={m.organization.id}
                   className="bg-[#16161a]"
                 >
-                  {m.organization?.name ?? m.organization_id.slice(0, 8)} · {m.role}
+                  {m.organization.name ?? m.organization.id.slice(0, 8)} · {m.role}
                 </option>
               ))}
             </select>
