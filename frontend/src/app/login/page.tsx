@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/components/session-provider';
 import { Button, Card } from '@/components/ui';
+import { FadeIn } from '@/components/motion';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -53,54 +54,63 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-5">
-      <Card className="w-full max-w-sm">
-        <h1 className="mb-1 text-xl font-semibold">OrgBrain</h1>
-        <p className="mb-6 text-sm text-white/50">
-          {mode === 'login' ? 'Sign in to your workspace' : 'Create an account'}
-        </p>
-        <form onSubmit={submit} className="space-y-3">
-          <input
-            type="email"
-            required
-            placeholder="you@company.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm outline-none focus:border-indigo-400"
-          />
-          <input
-            type="password"
-            required
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm outline-none focus:border-indigo-400"
-          />
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          {info && <p className="text-sm text-emerald-400">{info}</p>}
-          <Button type="submit" disabled={busy} className="w-full">
-            {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Sign up'}
-          </Button>
-        </form>
-        <button
-          onClick={() => {
-            setMode(mode === 'login' ? 'signup' : 'login');
-            setError(null);
-            setInfo(null);
-          }}
-          className="mt-4 w-full text-center text-sm text-white/50 hover:text-white"
-        >
-          {mode === 'login'
-            ? "Don't have an account? Sign up"
-            : 'Already have an account? Sign in'}
-        </button>
-        <Link
-          href="/"
-          className="mt-2 block text-center text-xs text-white/30 hover:text-white/60"
-        >
-          ← Back to home
-        </Link>
-      </Card>
+    <div className="relative flex min-h-screen items-center justify-center px-5">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-1/4 -top-1/4 h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-[120px]" />
+        <div className="absolute -bottom-1/4 -right-1/4 h-[500px] w-[500px] rounded-full bg-violet-500/10 blur-[100px]" />
+      </div>
+
+      <FadeIn className="relative z-10 w-full max-w-sm">
+        <Card className="border-white/10">
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">OrgBrain</h1>
+            <p className="mt-1 text-sm text-white/50">
+              {mode === 'login' ? 'Sign in to your workspace' : 'Create an account'}
+            </p>
+          </div>
+          <form onSubmit={submit} className="space-y-3">
+            <input
+              type="email"
+              required
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-sm outline-none transition-colors focus:border-indigo-400 focus:bg-white/[0.07]"
+            />
+            <input
+              type="password"
+              required
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-sm outline-none transition-colors focus:border-indigo-400 focus:bg-white/[0.07]"
+            />
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            {info && <p className="text-sm text-emerald-400">{info}</p>}
+            <Button type="submit" disabled={busy} className="w-full">
+              {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Sign up'}
+            </Button>
+          </form>
+          <button
+            onClick={() => {
+              setMode(mode === 'login' ? 'signup' : 'login');
+              setError(null);
+              setInfo(null);
+            }}
+            className="mt-4 w-full text-center text-sm text-white/50 transition-colors hover:text-white"
+          >
+            {mode === 'login'
+              ? "Don't have an account? Sign up"
+              : 'Already have an account? Sign in'}
+          </button>
+          <Link
+            href="/"
+            className="mt-2 block text-center text-xs text-white/30 transition-colors hover:text-white/60"
+          >
+            ← Back to home
+          </Link>
+        </Card>
+      </FadeIn>
     </div>
   );
 }

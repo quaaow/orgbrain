@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '@/components/session-provider';
-import { Badge, Button, Card, Spinner } from '@/components/ui';
+import { Badge, Button, Card, SkeletonCard } from '@/components/ui';
+import { FadeIn, StaggerContainer, StaggerItem } from '@/components/motion';
+import { useToast } from '@/components/toast';
 import { api } from '@/lib/api';
 import type { Lesson } from '@/lib/types';
 
@@ -30,53 +32,65 @@ export default function LessonsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Lessons</h1>
-          <p className="mt-1 text-white/50">What we learned and how we fixed it.</p>
+      <FadeIn>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Lessons</h1>
+            <p className="mt-1 text-white/50">What we learned and how we fixed it.</p>
+          </div>
+          <Button onClick={() => setOpen(!open)}>
+            {open ? 'Close' : '+ New lesson'}
+          </Button>
         </div>
-        <Button onClick={() => setOpen(!open)}>
-          {open ? 'Close' : '+ New lesson'}
-        </Button>
-      </div>
+      </FadeIn>
 
       {open && (
-        <NewLesson
-          orgId={activeOrgId}
-          onDone={() => {
-            setOpen(false);
-            void load();
-          }}
-        />
+        <FadeIn>
+          <NewLesson
+            orgId={activeOrgId}
+            onDone={() => {
+              setOpen(false);
+              void load();
+            }}
+          />
+        </FadeIn>
       )}
 
       {loading ? (
-        <Spinner label="Loading…" />
-      ) : items.length === 0 ? (
-        <p className="text-sm text-white/40">No lessons yet.</p>
-      ) : (
         <div className="space-y-3">
-          {items.map((l) => (
-            <Card key={l.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="font-medium">{l.problem}</div>
-                <Badge tone="info">{Math.round(l.confidence * 100)}% confidence</Badge>
-              </div>
-              <div className="mt-2 space-y-1 text-sm">
-                <p>
-                  <span className="text-white/40">Solution: </span>
-                  <span className="text-white/80">{l.solution}</span>
-                </p>
-                {l.result && (
-                  <p>
-                    <span className="text-white/40">Result: </span>
-                    <span className="text-white/80">{l.result}</span>
-                  </p>
-                )}
-              </div>
-            </Card>
-          ))}
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
+      ) : items.length === 0 ? (
+        <FadeIn>
+          <p className="text-sm text-white/40">No lessons yet.</p>
+        </FadeIn>
+      ) : (
+        <StaggerContainer className="space-y-3">
+          {items.map((l) => (
+            <StaggerItem key={l.id}>
+              <Card>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="font-medium">{l.problem}</div>
+                  <Badge tone="info">{Math.round(l.confidence * 100)}% confidence</Badge>
+                </div>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p>
+                    <span className="text-white/40">Solution: </span>
+                    <span className="text-white/80">{l.solution}</span>
+                  </p>
+                  {l.result && (
+                    <p>
+                      <span className="text-white/40">Result: </span>
+                      <span className="text-white/80">{l.result}</span>
+                    </p>
+                  )}
+                </div>
+              </Card>
+            </StaggerItem>
+          ))}
+        </StaggerContainer>
       )}
     </div>
   );
@@ -89,6 +103,7 @@ function NewLesson({
   orgId: string;
   onDone: () => void;
 }) {
+  const toast = useToast();
   const [problem, setProblem] = useState('');
   const [solution, setSolution] = useState('');
   const [result, setResult] = useState('');
@@ -106,6 +121,7 @@ function NewLesson({
         orgId,
       );
       onDone();
+      toast.show('Lesson saved', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed (need member role?)');
     } finally {

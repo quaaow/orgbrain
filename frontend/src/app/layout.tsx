@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { SessionProvider } from '@/components/session-provider';
+import { ToastProvider } from '@/components/toast';
 import { Analytics } from '@/components/analytics';
 import { alt as previewImageAlt, size as previewImageSize } from '@/lib/preview-image';
 
@@ -55,7 +56,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </SessionProvider>
         <Analytics />
       </body>
     </html>

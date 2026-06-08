@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '@/components/session-provider';
-import { Badge, Button, Card, Spinner } from '@/components/ui';
+import { Badge, Button, Card, SkeletonCard } from '@/components/ui';
+import { FadeIn, StaggerContainer, StaggerItem } from '@/components/motion';
+import { useToast } from '@/components/toast';
 import { api } from '@/lib/api';
 import type { ApiKey } from '@/lib/types';
 
 export default function ApiKeysPage() {
   const { activeOrgId, memberships } = useSession();
+  const toast = useToast();
   const role = memberships.find((m) => m.organization.id === activeOrgId)?.role;
   const isAdmin = role === 'owner' || role === 'admin';
 
@@ -38,77 +41,93 @@ export default function ApiKeysPage() {
 
   if (!isAdmin) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight">API Keys</h1>
-        <p className="text-white/50">Only owners and admins can manage API keys.</p>
-      </div>
+      <FadeIn>
+        <div className="space-y-4">
+          <h1 className="text-2xl font-semibold tracking-tight">API Keys</h1>
+          <p className="text-white/50">Only owners and admins can manage API keys.</p>
+        </div>
+      </FadeIn>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">API Keys</h1>
-          <p className="mt-1 text-white/50">Programmatic access to your organisation.</p>
+      <FadeIn>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">API Keys</h1>
+            <p className="mt-1 text-white/50">Programmatic access to your organisation.</p>
+          </div>
+          <Button onClick={() => { setOpen(!open); setNewKey(null); }}>
+            {open ? 'Close' : '+ New key'}
+          </Button>
         </div>
-        <Button onClick={() => { setOpen(!open); setNewKey(null); }}>
-          {open ? 'Close' : '+ New key'}
-        </Button>
-      </div>
+      </FadeIn>
 
       {open && (
-        <NewApiKey
-          orgId={activeOrgId}
-          onCreated={(key) => {
-            setNewKey(key);
-            void load();
-          }}
-        />
+        <FadeIn>
+          <NewApiKey
+            orgId={activeOrgId}
+            onCreated={(key) => {
+              setNewKey(key);
+              void load();
+            }}
+          />
+        </FadeIn>
       )}
 
       {newKey && (
-        <Card className="border-amber-400/30">
-          <p className="text-sm font-medium text-amber-300">Copy this key now — it won&apos;t be shown again.</p>
-          <code className="mt-2 block break-all rounded bg-white/5 px-3 py-2 text-sm text-white/90">{newKey}</code>
-        </Card>
+        <FadeIn>
+          <Card className="border-amber-400/30">
+            <p className="text-sm font-medium text-amber-300">Copy this key now — it won&apos;t be shown again.</p>
+            <code className="mt-2 block break-all rounded bg-white/5 px-3 py-2 text-sm text-white/90">{newKey}</code>
+          </Card>
+        </FadeIn>
       )}
 
       {loading ? (
-        <Spinner label="Loading…" />
-      ) : items.length === 0 ? (
-        <p className="text-sm text-white/40">No API keys yet.</p>
-      ) : (
         <div className="space-y-3">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : items.length === 0 ? (
+        <FadeIn>
+          <p className="text-sm text-white/40">No API keys yet.</p>
+        </FadeIn>
+      ) : (
+        <StaggerContainer className="space-y-3">
           {items.map((k) => (
-            <Card key={k.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-medium">{k.name}</div>
-                  <div className="mt-1 text-xs text-white/40">
-                    {k.key_prefix}… · {k.role} · created {k.created_at ? new Date(k.created_at).toLocaleDateString() : '—'}
+            <StaggerItem key={k.id}>
+              <Card>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-medium">{k.name}</div>
+                    <div className="mt-1 text-xs text-white/40">
+                      {k.key_prefix}… · {k.role} · created {k.created_at ? new Date(k.created_at).toLocaleDateString() : '—'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {k.revoked_at ? (
+                      <Badge tone="danger">revoked</Badge>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        onClick={async () => {
+                          if (!confirm('Revoke this key? It cannot be undone.')) return;
+                          await api.del(`/api-keys/${k.id}`, activeOrgId);
+                          void load();
+                          toast.show('API key revoked', 'info');
+                        }}
+                      >
+                        Revoke
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {k.revoked_at ? (
-                    <Badge tone="danger">revoked</Badge>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      onClick={async () => {
-                        if (!confirm('Revoke this key? It cannot be undone.')) return;
-                        await api.del(`/api-keys/${k.id}`, activeOrgId);
-                        void load();
-                      }}
-                    >
-                      Revoke
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
+              </Card>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       )}
     </div>
   );
@@ -121,6 +140,7 @@ function NewApiKey({
   orgId: string;
   onCreated: (key: string) => void;
 }) {
+  const toast = useToast();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +157,7 @@ function NewApiKey({
       );
       setName('');
       onCreated(res.key);
+      toast.show('API key created', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
     } finally {

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from '@/components/session-provider';
 import { Button, Card } from '@/components/ui';
+import { FadeIn, StaggerContainer, StaggerItem } from '@/components/motion';
+import { useToast } from '@/components/toast';
 import { api } from '@/lib/api';
 import type { Organization } from '@/lib/types';
 
@@ -14,6 +16,7 @@ export default function OverviewPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const toast = useToast();
   const activeMembership = memberships.find(
     (m) => m.organization.id === activeOrgId,
   );
@@ -28,6 +31,7 @@ export default function OverviewPage() {
       await refreshMe();
       setActiveOrgId(org.id);
       setName('');
+      toast.show('Organisation created', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create');
     } finally {
@@ -37,100 +41,118 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-8">
-      <div>
+      <FadeIn>
         <h1 className="text-2xl font-semibold tracking-tight">
           Welcome{me?.user.email ? `, ${me.user.email}` : ''}
         </h1>
         <p className="mt-1 text-white/50">
           Your organisation&apos;s memory — knowledge, decisions and lessons.
         </p>
-      </div>
+      </FadeIn>
 
       {memberships.length === 0 ? (
-        <Card className="max-w-md">
-          <h2 className="mb-1 font-medium">Create your first organisation</h2>
-          <p className="mb-4 text-sm text-white/50">
-            You&apos;ll be its owner. Everything is scoped per organisation.
-          </p>
-          <form onSubmit={createOrg} className="flex gap-2">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Acme Inc."
-              className="flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm outline-none focus:border-indigo-400"
-            />
-            <Button type="submit" disabled={busy}>
-              {busy ? '…' : 'Create'}
-            </Button>
-          </form>
-          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
-        </Card>
-      ) : (
-        <>
-          <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm text-white/50">Active organisation</div>
-                <div className="text-lg font-medium">
-                  {activeMembership?.organization.name ?? activeOrgId}
-                </div>
-              </div>
-              <div className="text-sm text-white/50">
-                Role: <span className="text-white">{activeMembership?.role}</span>
-              </div>
-            </div>
-          </Card>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <QuickLink
-              href="/search"
-              title="Search"
-              desc="Find anything by meaning"
-            />
-            <QuickLink
-              href="/decisions"
-              title="Decisions"
-              desc="Why we decided things"
-            />
-            <QuickLink
-              href="/lessons"
-              title="Lessons"
-              desc="What we learned"
-            />
-            <QuickLink
-              href="/reflect"
-              title="Reflect"
-              desc="Extract knowledge from text"
-            />
-            <QuickLink
-              href="/graph"
-              title="Graph"
-              desc="Visualise connections"
-            />
-            <QuickLink
-              href="/api-keys"
-              title="API Keys"
-              desc="Programmatic access"
-            />
-          </div>
-
+        <FadeIn delay={0.1}>
           <Card className="max-w-md">
-            <h2 className="mb-3 text-sm font-medium text-white/70">
-              Create another organisation
-            </h2>
+            <h2 className="mb-1 font-medium">Create your first organisation</h2>
+            <p className="mb-4 text-sm text-white/50">
+              You&apos;ll be its owner. Everything is scoped per organisation.
+            </p>
             <form onSubmit={createOrg} className="flex gap-2">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="New org name"
+                placeholder="Acme Inc."
                 className="flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm outline-none focus:border-indigo-400"
               />
-              <Button type="submit" variant="ghost" disabled={busy}>
+              <Button type="submit" disabled={busy}>
                 {busy ? '…' : 'Create'}
               </Button>
             </form>
             {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
           </Card>
+        </FadeIn>
+      ) : (
+        <>
+          <FadeIn delay={0.1}>
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-white/50">Active organisation</div>
+                  <div className="text-lg font-medium">
+                    {activeMembership?.organization.name ?? activeOrgId}
+                  </div>
+                </div>
+                <div className="text-sm text-white/50">
+                  Role: <span className="text-white">{activeMembership?.role}</span>
+                </div>
+              </div>
+            </Card>
+          </FadeIn>
+
+          <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StaggerItem>
+              <QuickLink
+                href="/search"
+                title="Search"
+                desc="Find anything by meaning"
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <QuickLink
+                href="/decisions"
+                title="Decisions"
+                desc="Why we decided things"
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <QuickLink
+                href="/lessons"
+                title="Lessons"
+                desc="What we learned"
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <QuickLink
+                href="/reflect"
+                title="Reflect"
+                desc="Extract knowledge from text"
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <QuickLink
+                href="/graph"
+                title="Graph"
+                desc="Visualise connections"
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <QuickLink
+                href="/api-keys"
+                title="API Keys"
+                desc="Programmatic access"
+              />
+            </StaggerItem>
+          </StaggerContainer>
+
+          <FadeIn delay={0.4}>
+            <Card className="max-w-md">
+              <h2 className="mb-3 text-sm font-medium text-white/70">
+                Create another organisation
+              </h2>
+              <form onSubmit={createOrg} className="flex gap-2">
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="New org name"
+                  className="flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+                />
+                <Button type="submit" variant="ghost" disabled={busy}>
+                  {busy ? '…' : 'Create'}
+                </Button>
+              </form>
+              {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+            </Card>
+          </FadeIn>
         </>
       )}
     </div>

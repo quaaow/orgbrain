@@ -12,16 +12,16 @@ export default function MarketingLayout({
           <Link href="/" className="text-lg font-semibold tracking-tight">
             OrgBrain
           </Link>
-          <nav className="flex items-center gap-5 text-sm">
-            <a href="#features" className="text-white/60 hover:text-white">
+          <nav className="flex items-center gap-3 text-sm sm:gap-5">
+            <a href="#features" className="hidden text-white/60 hover:text-white sm:inline">
               Features
             </a>
-            <a href="#how" className="text-white/60 hover:text-white">
+            <a href="#how" className="hidden text-white/60 hover:text-white sm:inline">
               How it works
             </a>
             <Link
               href="/login"
-              className="rounded-lg bg-white px-4 py-1.5 font-medium text-black transition-opacity hover:opacity-90"
+              className="rounded-lg bg-white px-4 py-1.5 font-medium text-black transition-all hover:opacity-90 active:scale-[0.97]"
             >
               Sign in
             </Link>

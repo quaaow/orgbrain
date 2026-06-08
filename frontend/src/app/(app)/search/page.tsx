@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '@/components/session-provider';
-import { Badge, Button, Card, Spinner } from '@/components/ui';
+import { Badge, Button, Card, SkeletonCard } from '@/components/ui';
+import { FadeIn, StaggerContainer, StaggerItem } from '@/components/motion';
 import { api } from '@/lib/api';
 import type { Knowledge, KnowledgeType, SearchHit } from '@/lib/types';
 
@@ -65,90 +66,110 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-8">
-      <div>
+      <FadeIn>
         <h1 className="text-2xl font-semibold tracking-tight">Knowledge</h1>
         <p className="mt-1 text-white/50">Semantic search across your org.</p>
-      </div>
+      </FadeIn>
 
-      <form onSubmit={runSearch} className="flex gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask by meaning, e.g. 'how do we handle migrations'"
-          className="flex-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-indigo-400"
-        />
-        <Button type="submit" disabled={searching}>
-          {searching ? 'Searching…' : 'Search'}
-        </Button>
-      </form>
+      <FadeIn delay={0.1}>
+        <form onSubmit={runSearch} className="flex gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Ask by meaning, e.g. 'how do we handle migrations'"
+            className="flex-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-indigo-400"
+          />
+          <Button type="submit" disabled={searching}>
+            {searching ? 'Searching…' : 'Search'}
+          </Button>
+        </form>
+      </FadeIn>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {hits && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-white/70">
-              Results ({hits.length})
-            </h2>
-            <button
-              onClick={() => setHits(null)}
-              className="text-sm text-white/40 hover:text-white"
-            >
-              Clear
-            </button>
-          </div>
-          {hits.length === 0 && (
-            <p className="text-sm text-white/40">No matches.</p>
-          )}
-          {hits.map((h) => (
-            <Card key={h.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-medium">
-                    {String(h.payload.title ?? 'Untitled')}
-                  </div>
-                  <div className="mt-1 text-sm text-white/60">
-                    {String(h.payload.content ?? '')}
-                  </div>
-                </div>
-                <Badge tone="info">{h.score.toFixed(3)}</Badge>
-              </div>
-            </Card>
-          ))}
-        </section>
+        <FadeIn>
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-white/70">
+                Results ({hits.length})
+              </h2>
+              <button
+                onClick={() => setHits(null)}
+                className="text-sm text-white/40 hover:text-white"
+              >
+                Clear
+              </button>
+            </div>
+            {hits.length === 0 && (
+              <p className="text-sm text-white/40">No matches.</p>
+            )}
+            <StaggerContainer className="space-y-3">
+              {hits.map((h) => (
+                <StaggerItem key={h.id}>
+                  <Card>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium">
+                          {String(h.payload.title ?? 'Untitled')}
+                        </div>
+                        <div className="mt-1 text-sm text-white/60">
+                          {String(h.payload.content ?? '')}
+                        </div>
+                      </div>
+                      <Badge tone="info">{h.score.toFixed(3)}</Badge>
+                    </div>
+                  </Card>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+          </section>
+        </FadeIn>
       )}
 
-      <CreateKnowledge orgId={activeOrgId} onCreated={loadList} />
+      <FadeIn delay={0.2}>
+        <CreateKnowledge orgId={activeOrgId} onCreated={loadList} />
+      </FadeIn>
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-white/70">Recent</h2>
         {loading ? (
-          <Spinner label="Loading…" />
+          <div className="space-y-3">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
         ) : items.length === 0 ? (
-          <p className="text-sm text-white/40">No knowledge yet.</p>
+          <FadeIn>
+            <p className="text-sm text-white/40">No knowledge yet.</p>
+          </FadeIn>
         ) : (
-          items.map((k) => (
-            <Card key={k.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{k.title}</span>
-                    <Badge>{k.type}</Badge>
-                    <Badge tone={k.source === 'reflect' ? 'info' : 'neutral'}>
-                      {k.source}
-                    </Badge>
-                    {k.stale && <Badge tone="warning">stale</Badge>}
+          <StaggerContainer className="space-y-3">
+            {items.map((k) => (
+              <StaggerItem key={k.id}>
+                <Card>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{k.title}</span>
+                        <Badge>{k.type}</Badge>
+                        <Badge tone={k.source === 'reflect' ? 'info' : 'neutral'}>
+                          {k.source}
+                        </Badge>
+                        {k.stale && <Badge tone="warning">stale</Badge>}
+                      </div>
+                      <div className="mt-1 text-sm text-white/60">{k.content}</div>
+                    </div>
+                    {k.stale && (
+                      <Button variant="subtle" onClick={() => void review(k.id)}>
+                        Mark reviewed
+                      </Button>
+                    )}
                   </div>
-                  <div className="mt-1 text-sm text-white/60">{k.content}</div>
-                </div>
-                {k.stale && (
-                  <Button variant="subtle" onClick={() => void review(k.id)}>
-                    Mark reviewed
-                  </Button>
-                )}
-              </div>
-            </Card>
-          ))
+                </Card>
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
         )}
       </section>
     </div>

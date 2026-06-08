@@ -12,7 +12,7 @@ export function Card({
   return (
     <div
       className={clsx(
-        'rounded-xl border border-white/10 bg-white/[0.03] p-4',
+        'rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.05] hover:shadow-lg hover:shadow-indigo-500/5',
         className,
       )}
     >
@@ -48,7 +48,7 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       className={clsx(
-        'rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+        'rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100',
         styles,
         className,
       )}
@@ -89,6 +89,27 @@ export function Spinner({ label }: { label?: string }) {
     <div className="flex items-center gap-2 text-sm text-white/50">
       <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white/80" />
       {label}
+    </div>
+  );
+}
+
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <div
+      className={clsx(
+        'animate-pulse rounded-lg bg-white/[0.06]',
+        className,
+      )}
+    />
+  );
+}
+
+export function SkeletonCard() {
+  return (
+    <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <Skeleton className="h-4 w-1/3" />
+      <Skeleton className="h-3 w-full" />
+      <Skeleton className="h-3 w-2/3" />
     </div>
   );
 }

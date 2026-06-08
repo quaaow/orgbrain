@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '@/components/session-provider';
-import { Badge, Button, Card, Spinner } from '@/components/ui';
+import { Badge, Button, Card, SkeletonCard } from '@/components/ui';
+import { FadeIn, StaggerContainer, StaggerItem } from '@/components/motion';
+import { useToast } from '@/components/toast';
 import { api } from '@/lib/api';
 import type { Decision, DecisionStatus } from '@/lib/types';
 
@@ -40,53 +42,65 @@ export default function DecisionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Decisions</h1>
-          <p className="mt-1 text-white/50">Why we decided what we decided.</p>
+      <FadeIn>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Decisions</h1>
+            <p className="mt-1 text-white/50">Why we decided what we decided.</p>
+          </div>
+          <Button onClick={() => setOpen(!open)}>
+            {open ? 'Close' : '+ New decision'}
+          </Button>
         </div>
-        <Button onClick={() => setOpen(!open)}>
-          {open ? 'Close' : '+ New decision'}
-        </Button>
-      </div>
+      </FadeIn>
 
       {open && (
-        <NewDecision
-          orgId={activeOrgId}
-          onDone={() => {
-            setOpen(false);
-            void load();
-          }}
-        />
+        <FadeIn>
+          <NewDecision
+            orgId={activeOrgId}
+            onDone={() => {
+              setOpen(false);
+              void load();
+            }}
+          />
+        </FadeIn>
       )}
 
       {loading ? (
-        <Spinner label="Loading…" />
-      ) : items.length === 0 ? (
-        <p className="text-sm text-white/40">No decisions yet.</p>
-      ) : (
         <div className="space-y-3">
-          {items.map((d) => (
-            <Card key={d.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="font-medium">{d.title}</div>
-                <Badge tone={STATUS_TONE[d.status]}>{d.status}</Badge>
-              </div>
-              <div className="mt-2 space-y-1 text-sm">
-                <p>
-                  <span className="text-white/40">Why: </span>
-                  <span className="text-white/80">{d.reason}</span>
-                </p>
-                {d.outcome && (
-                  <p>
-                    <span className="text-white/40">Outcome: </span>
-                    <span className="text-white/80">{d.outcome}</span>
-                  </p>
-                )}
-              </div>
-            </Card>
-          ))}
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
+      ) : items.length === 0 ? (
+        <FadeIn>
+          <p className="text-sm text-white/40">No decisions yet.</p>
+        </FadeIn>
+      ) : (
+        <StaggerContainer className="space-y-3">
+          {items.map((d) => (
+            <StaggerItem key={d.id}>
+              <Card>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="font-medium">{d.title}</div>
+                  <Badge tone={STATUS_TONE[d.status]}>{d.status}</Badge>
+                </div>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p>
+                    <span className="text-white/40">Why: </span>
+                    <span className="text-white/80">{d.reason}</span>
+                  </p>
+                  {d.outcome && (
+                    <p>
+                      <span className="text-white/40">Outcome: </span>
+                      <span className="text-white/80">{d.outcome}</span>
+                    </p>
+                  )}
+                </div>
+              </Card>
+            </StaggerItem>
+          ))}
+        </StaggerContainer>
       )}
     </div>
   );
@@ -99,6 +113,7 @@ function NewDecision({
   orgId: string;
   onDone: () => void;
 }) {
+  const toast = useToast();
   const [title, setTitle] = useState('');
   const [reason, setReason] = useState('');
   const [outcome, setOutcome] = useState('');
@@ -116,6 +131,7 @@ function NewDecision({
         orgId,
       );
       onDone();
+      toast.show('Decision saved', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed (need member role?)');
     } finally {

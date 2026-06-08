@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '@/components/session-provider';
-import { Badge, Button, Card, Spinner } from '@/components/ui';
+import { Badge, Button, Card, SkeletonCard } from '@/components/ui';
+import { FadeIn, StaggerContainer, StaggerItem } from '@/components/motion';
+import { useToast } from '@/components/toast';
 import { api } from '@/lib/api';
 import type {
   ExtractionItem,
@@ -42,6 +44,8 @@ export default function ReflectPage() {
     void loadRuns();
   }, [loadRuns]);
 
+  const toast = useToast();
+
   async function runReflect() {
     if (!text.trim() || !activeOrgId) return;
     setBusy(true);
@@ -55,6 +59,7 @@ export default function ReflectPage() {
       setText('');
       await loadRuns();
       setOpenRun(res.run.id);
+      toast.show('Extraction complete', 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       if (msg.includes('15000')) {
@@ -75,53 +80,60 @@ export default function ReflectPage() {
 
   return (
     <div className="space-y-8">
-      <div>
+      <FadeIn>
         <h1 className="text-2xl font-semibold tracking-tight">Reflect</h1>
         <p className="mt-1 text-white/50">
           Paste a postmortem, meeting notes or retro. We extract facts, decisions
           and lessons for you to review before saving.
         </p>
-      </div>
+      </FadeIn>
 
-      <Card>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={6}
-          placeholder="Paste raw text here…"
-          className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm outline-none focus:border-indigo-400"
-        />
-        <div className="mt-2 flex items-center justify-between text-xs">
-          <span className={overLimit ? 'text-red-400' : 'text-white/40'}>
-            {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} characters
-          </span>
-          {overLimit && (
-            <span className="text-red-400">Text is too long. Split into smaller parts.</span>
-          )}
-        </div>
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
-        <div className="mt-3">
-          <Button onClick={runReflect} disabled={busy || !text.trim() || overLimit}>
-            {busy ? 'Extracting…' : 'Extract'}
-          </Button>
-        </div>
-      </Card>
+      <FadeIn delay={0.1}>
+        <Card>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={6}
+            placeholder="Paste raw text here…"
+            className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+          />
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span className={overLimit ? 'text-red-400' : 'text-white/40'}>
+              {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} characters
+            </span>
+            {overLimit && (
+              <span className="text-red-400">Text is too long. Split into smaller parts.</span>
+            )}
+          </div>
+          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+          <div className="mt-3">
+            <Button onClick={runReflect} disabled={busy || !text.trim() || overLimit}>
+              {busy ? 'Extracting…' : 'Extract'}
+            </Button>
+          </div>
+        </Card>
+      </FadeIn>
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-white/70">Runs</h2>
         {runs.length === 0 ? (
-          <p className="text-sm text-white/40">No runs yet.</p>
+          <FadeIn delay={0.2}>
+            <p className="text-sm text-white/40">No runs yet.</p>
+          </FadeIn>
         ) : (
-          runs.map((r) => (
-            <RunRow
-              key={r.id}
-              run={r}
-              orgId={activeOrgId}
-              open={openRun === r.id}
-              onToggle={() => setOpenRun(openRun === r.id ? null : r.id)}
-              onChanged={loadRuns}
-            />
-          ))
+          <StaggerContainer className="space-y-3">
+            {runs.map((r) => (
+              <StaggerItem key={r.id}>
+                <RunRow
+                  run={r}
+                  orgId={activeOrgId}
+                  open={openRun === r.id}
+                  onToggle={() => setOpenRun(openRun === r.id ? null : r.id)}
+                  onChanged={loadRuns}
+                />
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
         )}
       </section>
     </div>
@@ -141,6 +153,7 @@ function RunRow({
   onToggle: () => void;
   onChanged: () => void;
 }) {
+  const toast = useToast();
   const [items, setItems] = useState<ExtractionItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -172,6 +185,7 @@ function RunRow({
       await api.post(`/reflect/runs/${run.id}/apply`, {}, orgId);
       await loadItems();
       onChanged();
+      toast.show('Applied to knowledge base', 'success');
     } finally {
       setBusy(false);
     }
@@ -183,6 +197,7 @@ function RunRow({
       await api.post(`/reflect/runs/${run.id}/discard`, {}, orgId);
       await loadItems();
       onChanged();
+      toast.show('Run discarded', 'info');
     } finally {
       setBusy(false);
     }
@@ -213,7 +228,9 @@ function RunRow({
       {open && (
         <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
           {loading || !items ? (
-            <Spinner label="Loading items…" />
+            <div className="space-y-2">
+              <SkeletonCard />
+            </div>
           ) : (
             <>
               {items.map((it) => (
