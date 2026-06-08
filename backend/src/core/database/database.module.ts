@@ -1,3 +1,4 @@
+import { join } from 'path';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppConfigService } from '../../config/app-config.service';
@@ -13,7 +14,10 @@ import { entities } from '../../entities';
         type: 'postgres',
         url: config.databaseUrl,
         entities,
-        // Mirrors the Python `Base.metadata.create_all` startup behaviour.
+        // Migrations are the source of truth in production; `synchronize`
+        // remains on only for local development convenience.
+        migrations: [join(__dirname, '..', '..', 'migrations', '*.{js,ts}')],
+        migrationsRun: config.isProduction,
         synchronize: !config.isProduction,
         logging: !config.isProduction,
         // Supabase uses a self-signed cert in the chain; encrypt without

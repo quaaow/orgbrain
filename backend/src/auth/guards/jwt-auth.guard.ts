@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { AppConfigService } from '../../config/app-config.service';
 import { UsersService } from '../users.service';
+import { ApiKeyService } from '../api-key.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 type JwtVerifyResult = { payload: Record<string, any> };
@@ -35,6 +36,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly config: AppConfigService,
     private readonly users: UsersService,
+    private readonly apiKeys: ApiKeyService,
   ) {}
 
   private async getJwks(): Promise<{ jose: JoseModule; jwks: unknown }> {
@@ -60,6 +62,21 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
+
+    // Machine auth: an `x-api-key` header short-circuits the JWT flow and
+    // resolves the organisation/role directly from the key.
+    const apiKeyHeader: string | undefined = request.headers?.['x-api-key'];
+    if (apiKeyHeader) {
+      const principal = await this.apiKeys.validate(apiKeyHeader);
+      if (!principal) {
+        throw new UnauthorizedException('Invalid or revoked API key');
+      }
+      request.user = { userId: principal.createdBy, email: null };
+      request.orgContext = { orgId: principal.orgId, role: principal.role };
+      request.apiKeyAuth = true;
+      return true;
+    }
+
     const header: string | undefined = request.headers?.authorization;
     if (!header || !header.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing bearer token');

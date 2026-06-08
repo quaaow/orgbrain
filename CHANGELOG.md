@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- API-key authentication for programmatic (SDK / MCP) access: org-scoped,
+  role-bounded keys (`x-api-key` header), with `POST/GET/DELETE /api-keys`
+  management endpoints (admin only). Raw keys are shown once and stored only as
+  SHA-256 hashes.
+- First TypeORM migration (`AddApiKeys`) plus `migrationsRun` on production
+  boot; migrations are now the source of truth for the production schema
+  (`synchronize` stays on only for local dev).
 - `README.md` and `ARCHITECTURE.md` documentation.
 - MIT `LICENSE` with a trademark notice for the OrgBrain name.
 - Continuous integration workflow (`.github/workflows/ci.yml`) building the

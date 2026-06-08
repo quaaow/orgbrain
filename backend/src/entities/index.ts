@@ -8,6 +8,7 @@ import { AuditLog } from './audit-log.entity';
 import { EntityLink } from './entity-link.entity';
 import { ReflectionRun } from './reflection-run.entity';
 import { ExtractionItem } from './extraction-item.entity';
+import { ApiKey } from './api-key.entity';
 
 /**
  * Single source of truth for the set of persistent entities, shared by the
@@ -25,4 +26,5 @@ export const entities = [
   EntityLink,
   ReflectionRun,
   ExtractionItem,
+  ApiKey,
 ];

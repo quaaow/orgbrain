@@ -126,13 +126,17 @@ payload field (keyword-indexed) for tenant-scoped filtering.
 
 Three layers of guards run on protected routes:
 
-1. **`JwtAuthGuard`** (global) — verifies the Supabase access token against the
-   project JWKS, checks issuer (`${SUPABASE_URL}/auth/v1`) and audience
-   (`authenticated`), then upserts the local `User` and attaches `request.user`.
+1. **`JwtAuthGuard`** (global) — supports two credentials:
+   - An `X-Api-Key` header (machine access): validated against the SHA-256 hash
+     stored in `api_keys`; resolves `{ orgId, role }` directly from the key.
+   - Otherwise a Supabase access token, verified against the project JWKS with
+     issuer (`${SUPABASE_URL}/auth/v1`) and audience (`authenticated`) checks,
+     then upserts the local `User`.
    Routes marked `@Public()` (e.g. `/health`) bypass it.
 2. **`OrgGuard`** — resolves the org from `X-Org-Id` (or `:orgId` param /
    `org_id` query), verifies the user has a `Membership`, and attaches
-   `{ orgId, role }` to the request.
+   `{ orgId, role }` to the request. For API-key requests the org/role are
+   already fixed by the key, so the guard only rejects a mismatching override.
 3. **`RolesGuard`** — enforces a minimum role via `@Roles(...)` (role hierarchy:
    `viewer < member < admin < owner`). Reads are generally `viewer`+, writes are
    `member`+, membership management is `admin`+.
@@ -229,11 +233,12 @@ from silently rotting.
 
 🚧 **Reliability & data**
 
-- **Database migrations.** `synchronize` is on only outside production; prod
-  relies on the schema already existing in the shared Supabase DB. Migration
-  tooling is now in place (`src/data-source.ts` + `migration:generate/run/revert`
-  scripts) — the remaining work is to generate and commit the initial migration
-  and wire `migrationsRun` (or a deploy step) for production.
+- **Database migrations.** Migrations are now the production source of truth:
+  `synchronize` runs only outside production, and `migrationsRun` applies pending
+  migrations on production boot. The first migration (`AddApiKeys`) is committed;
+  the older tables predate migrations (created via `synchronize`), so generate a
+  baseline if you ever need to rebuild from scratch. Day-to-day: change an
+  entity, run `npm run migration:generate -- src/migrations/<Name>`, commit it.
 - **Background processing for Reflect.** Extraction is synchronous and can be
   slow on large inputs (chunk × LLM round-trips), risking request timeouts.
   Move it to a queue/worker (e.g. BullMQ, or a durable workflow) with a job
@@ -277,19 +282,16 @@ from silently rotting.
 
 ## 8. What to do next (suggested order)
 
-1. **Generate the initial migration** and stop relying on `synchronize` — the
-   tooling is ready (`npm run migration:generate -- src/migrations/InitialSchema`,
-   then `migration:run`). *(Foundational; do this first.)*
-2. **Make Reflect asynchronous** with a job queue + polling UI to remove the
+1. **Make Reflect asynchronous** with a job queue + polling UI to remove the
    timeout risk and improve UX on large inputs.
-3. **Expand the test suite** (database-backed tenant isolation, Reflect apply
+2. **Expand the test suite** (database-backed tenant isolation, Reflect apply
    idempotency) — initial unit tests and CI are already in place.
-4. **Audit secrets**: `SECRET_KEY` is rotated; verify no keys committed in dev
+3. **Audit secrets**: `SECRET_KEY` is rotated; verify no keys committed in dev
    leak into git history and consider per-environment service projects.
-5. **Ship the first ingestion connector** (file/PDF upload) to drive real
+4. **Ship the first ingestion connector** (file/PDF upload) to drive real
    content volume into the Reflect pipeline.
-6. **Extend search** to embed decisions + lessons and add hybrid + reranking.
-7. **Layer in observability** (logs/metrics/tracing) before scaling usage.
+5. **Extend search** to embed decisions + lessons and add hybrid + reranking.
+6. **Layer in observability** (logs/metrics/tracing) before scaling usage.
 
 ---
 

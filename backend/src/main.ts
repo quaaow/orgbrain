@@ -31,8 +31,17 @@ async function bootstrap() {
       type: 'http',
       scheme: 'bearer',
       bearerFormat: 'JWT',
-      description: 'Supabase access token',
+      description: 'Supabase access token (human / browser auth)',
     })
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'x-api-key',
+        description: 'OrgBrain API key for programmatic (SDK / MCP) access',
+      },
+      'api-key',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document, {

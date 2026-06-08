@@ -13,7 +13,7 @@ memory. An AI "Reflect" pipeline extracts **facts**, **decisions**, and
 **lessons** from free text, stages them for human review, and materialises the
 approved items into a semantic knowledge base backed by vector search.
 
-- **Live frontend:** https://frontend-navy-xi-72.vercel.app
+- **Live frontend:** orgbrain-sable.vercel.app
 - **Live API:** https://orgbrain-production.up.railway.app
 - **API docs (Swagger):** https://orgbrain-production.up.railway.app/docs
 
@@ -199,8 +199,9 @@ cd frontend && vercel --prod
 
 | Area          | Endpoints                                                                 |
 | ------------- | ------------------------------------------------------------------------- |
-| System        | `GET /health`                                                             |
+| System        | `GET /health`, `GET /health/deep` (postgres + qdrant + openrouter)        |
 | Auth          | `GET /auth/me`                                                            |
+| API keys      | `POST/GET /api-keys`, `DELETE /api-keys/:id` (admin only)                 |
 | Organizations | `POST/GET /organizations`, `…/:orgId/members` CRUD                        |
 | Knowledge     | `POST/GET /knowledge`, `/knowledge/stale`, `POST /knowledge/search`, `…/:id` CRUD, `POST /knowledge/:id/review` |
 | Decisions     | `POST/GET /decisions`, `…/:id` CRUD                                       |
@@ -209,8 +210,15 @@ cd frontend && vercel --prod
 | Reflect       | `POST /reflect`, `GET /reflect/runs`, `…/:id`, `PATCH /reflect/items/:id`, `POST /reflect/runs/:id/apply`, `…/discard` |
 | Graph         | `POST/GET /links`, `DELETE /links/:id`, `GET /graph`                      |
 
-All org-scoped routes require a Supabase `Authorization: Bearer <token>` header
-and an `X-Org-Id` header. See Swagger for full request/response schemas.
+Org-scoped routes accept either of two credentials:
+
+- **Human / browser:** a Supabase `Authorization: Bearer <token>` header plus an
+  `X-Org-Id` header.
+- **Programmatic (SDK / MCP):** an `X-Api-Key: ob_...` header. The key is bound
+  to one organisation and carries a role, so no `X-Org-Id` is required. Mint and
+  revoke keys via `/api-keys` (admin only); the raw key is shown only once.
+
+See Swagger (`/docs`) for full request/response schemas.
 
 ## License
 

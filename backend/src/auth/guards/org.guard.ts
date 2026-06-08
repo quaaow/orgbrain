@@ -32,6 +32,20 @@ export class OrgGuard implements CanActivate {
     const headerOrg = request.headers?.['x-org-id'];
     const paramOrg = request.params?.orgId;
     const queryOrg = request.query?.org_id;
+
+    // API-key auth already resolved the organisation from the key itself; the
+    // key is bound to one org and there is no membership row to check. Honour
+    // it, but reject an explicit org override that disagrees with the key.
+    if (request.apiKeyAuth && request.orgContext?.orgId) {
+      const requested: string | undefined = headerOrg || paramOrg || queryOrg;
+      if (requested && requested !== request.orgContext.orgId) {
+        throw new ForbiddenException(
+          'API key is not authorised for this organization',
+        );
+      }
+      return true;
+    }
+
     const orgId: string | undefined = headerOrg || paramOrg || queryOrg;
     if (!orgId) {
       throw new BadRequestException(
