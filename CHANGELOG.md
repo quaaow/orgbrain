@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Public marketing landing page (`/`) with hero, features and how-it-works,
+  plus Open Graph / Twitter link previews (dynamic OG image), an app favicon,
+  and richer SEO metadata — so shared links render well on social media.
+- Public legal pages: Terms of Service (`/terms`) and Privacy Policy
+  (`/privacy`, with a subprocessor list), linked from a marketing footer.
+- Optional privacy-friendly, cookieless analytics (Plausible) gated on
+  `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`.
+- Frontend split into public (marketing) and authenticated (`(app)`) route
+  groups; the app dashboard now lives at `/dashboard` and the bare domain
+  serves the landing page.
 - Sentry error monitoring for backend (`@sentry/nestjs`) and frontend
   (`@sentry/nextjs`). The backend reports unhandled errors and 5xx responses
   with org/user context (no request bodies or PII); the frontend captures

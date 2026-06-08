@@ -179,6 +179,8 @@ Frontend environment variables (all `NEXT_PUBLIC_*`, inlined at build time):
 | `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL             |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key                |
 | `NEXT_PUBLIC_SENTRY_DSN`        | Sentry monitoring (optional)     |
+| `NEXT_PUBLIC_SITE_URL`          | Canonical site URL for SEO/OG    |
+| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`  | Plausible analytics (optional)   |
 
 ## Deployment
 

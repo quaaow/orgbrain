@@ -1,27 +1,20 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useSession } from './session-provider';
 import { Nav } from './nav';
 import { Spinner } from './ui';
 
-const PUBLIC_PATHS = ['/login'];
-
 export function Shell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
   const { session, loading } = useSession();
-  const isPublic = PUBLIC_PATHS.includes(pathname);
 
   useEffect(() => {
-    if (!loading && !session && !isPublic) {
+    if (!loading && !session) {
       router.replace('/login');
     }
-    if (!loading && session && isPublic) {
-      router.replace('/');
-    }
-  }, [loading, session, isPublic, router]);
+  }, [loading, session, router]);
 
   if (loading) {
     return (
@@ -31,7 +24,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!session && !isPublic) {
+  if (!session) {
     return null;
   }
 

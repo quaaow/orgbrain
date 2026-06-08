@@ -6,7 +6,7 @@ import { useSession } from './session-provider';
 import { clsx } from './clsx';
 
 const LINKS = [
-  { href: '/', label: 'Overview' },
+  { href: '/dashboard', label: 'Overview' },
   { href: '/search', label: 'Search' },
   { href: '/decisions', label: 'Decisions' },
   { href: '/reflect', label: 'Reflect' },
@@ -26,13 +26,12 @@ export function Nav() {
   return (
     <header className="sticky top-0 z-10 border-b border-white/10 bg-[#0a0a0b]/80 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center gap-6 px-5 py-3">
-        <Link href="/" className="font-semibold tracking-tight">
+        <Link href="/dashboard" className="font-semibold tracking-tight">
           OrgBrain
         </Link>
         <nav className="flex items-center gap-1">
           {LINKS.map((l) => {
-            const active =
-              l.href === '/' ? pathname === '/' : pathname.startsWith(l.href);
+            const active = pathname.startsWith(l.href);
             return (
               <Link
                 key={l.href}

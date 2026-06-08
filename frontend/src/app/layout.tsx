@@ -1,11 +1,43 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { SessionProvider } from '@/components/session-provider';
-import { Shell } from '@/components/shell';
+import { Analytics } from '@/components/analytics';
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://orgbrain.vercel.app';
+const title = 'OrgBrain — your organisation’s memory';
+const description =
+  'Capture knowledge, decisions and lessons, then find anything by meaning. ' +
+  'OrgBrain turns scattered context into a searchable, AI-reflected memory for your team.';
 
 export const metadata: Metadata = {
-  title: 'OrgBrain',
-  description: 'Organisational memory: knowledge, decisions and lessons.',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: title,
+    template: '%s · OrgBrain',
+  },
+  description,
+  applicationName: 'OrgBrain',
+  keywords: [
+    'organisational memory',
+    'knowledge base',
+    'decision log',
+    'semantic search',
+    'team knowledge',
+    'AI knowledge management',
+  ],
+  authors: [{ name: 'OrgBrain' }],
+  openGraph: {
+    type: 'website',
+    siteName: 'OrgBrain',
+    title,
+    description,
+    url: siteUrl,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+  },
 };
 
 export default function RootLayout({
@@ -16,9 +48,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <SessionProvider>
-          <Shell>{children}</Shell>
-        </SessionProvider>
+        <SessionProvider>{children}</SessionProvider>
+        <Analytics />
       </body>
     </html>
   );

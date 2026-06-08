@@ -1,16 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useSession } from '@/components/session-provider';
 import { Button, Card } from '@/components/ui';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { session, loading } = useSession();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!loading && session) {
+      router.replace('/dashboard');
+    }
+  }, [loading, session, router]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,6 +89,12 @@ export default function LoginPage() {
             ? "Don't have an account? Sign up"
             : 'Already have an account? Sign in'}
         </button>
+        <Link
+          href="/"
+          className="mt-2 block text-center text-xs text-white/30 hover:text-white/60"
+        >
+          ← Back to home
+        </Link>
       </Card>
     </div>
   );
