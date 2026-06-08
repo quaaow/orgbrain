@@ -126,4 +126,14 @@ export class QdrantService implements OnModuleInit {
   static orgFilter(orgId: string): QdrantFilter {
     return { must: [{ key: 'org_id', match: { value: orgId } }] };
   }
+
+  /** Lightweight connectivity check used by the deep health endpoint. */
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.getClient().collectionExists(COLLECTION_NAME);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

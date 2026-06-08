@@ -52,6 +52,19 @@ export class LlmService {
   }
 
   /**
+   * Lightweight connectivity check used by the deep health endpoint. Hits the
+   * models listing (no tokens consumed) with a short timeout.
+   */
+  async healthCheck(): Promise<boolean> {
+    try {
+      const res = await this.getClient().get('/models', { timeout: 5_000 });
+      return res.status < 400;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Send a chat completion request to OpenRouter and return the reply text.
    */
   async chatCompletion(

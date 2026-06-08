@@ -7,9 +7,15 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { ExtractionStatus } from '../../../entities/extraction-item.entity';
 
 export class ReflectRequestDto {
+  @ApiProperty({
+    example:
+      'In the Q3 retro we decided to drop the legacy billing API because it caused 40% of incidents. The lesson: migrate integrations before deprecating an endpoint.',
+    description: 'Free text to extract facts, decisions and lessons from.',
+  })
   @IsString()
   @IsNotEmpty()
   text: string;

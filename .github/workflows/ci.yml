@@ -25,17 +25,20 @@ jobs:
       - run: npm test --if-present
 
   frontend:
-    name: Frontend (lint + build)
+    name: Frontend (lint + test + build)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
-    # NEXT_PUBLIC_* values are public (the Supabase anon key ships in the browser
-    # bundle); they are inlined here only so the production build can complete.
+    # The build only needs these to be present and well-formed so the bundle
+    # compiles; CI does not exercise real Supabase/API calls. Real values are
+    # injected by Vercel at deploy time. Override here with repository
+    # Variables (Settings -> Secrets and variables -> Actions -> Variables) if
+    # you want CI to build against real endpoints.
     env:
-      NEXT_PUBLIC_API_URL: https://orgbrain-production.up.railway.app
-      NEXT_PUBLIC_SUPABASE_URL: https://thmrzulqsahxzkvqqvxu.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRobXJ6dWxxc2FoeHprdnFxdnh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NzU4ODUsImV4cCI6MjA5NjM1MTg4NX0.XzNwYkWLNXWK4a529snNb70QZOfxXDckcVqeSo9nN1o
+      NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'https://api.placeholder.local' }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,4 +48,5 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm test
       - run: npm run build

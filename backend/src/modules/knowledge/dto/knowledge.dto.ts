@@ -10,22 +10,36 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { KnowledgeType } from '../../../entities/knowledge.entity';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 
 export class CreateKnowledgeDto {
+  @ApiProperty({ enum: KnowledgeType, example: KnowledgeType.fact })
   @IsEnum(KnowledgeType)
   type: KnowledgeType;
 
+  @ApiProperty({ example: 'Standard payment terms are net-30' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(512)
   title: string;
 
+  @ApiProperty({
+    example:
+      'Unless negotiated otherwise, customer invoices are due 30 days after issue.',
+  })
   @IsString()
   @IsNotEmpty()
   content: string;
 
+  @ApiPropertyOptional({
+    minimum: 0,
+    maximum: 1,
+    default: 0.5,
+    example: 0.8,
+    description: 'Relative importance, 0–1.',
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -72,6 +86,7 @@ export class ReviewKnowledgeDto {
 }
 
 export class SearchKnowledgeDto {
+  @ApiProperty({ example: 'what are our payment terms?' })
   @IsString()
   @IsNotEmpty()
   query: string;

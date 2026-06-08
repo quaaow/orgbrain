@@ -14,13 +14,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Issue and pull request templates under `.github/`.
 - TypeORM migration tooling (`data-source.ts` + `migration:*` npm scripts).
 - Jest test setup with initial unit tests (text chunking, role ranking).
+- Global exception filter returning consistent, sanitised error responses
+  (no stack traces or driver internals leak to clients).
+- Deep readiness probe `GET /health/deep` checking Postgres, Qdrant and the
+  OpenRouter gateway.
+- OpenAPI request/response examples on the knowledge, decision and reflect
+  DTOs.
+- Frontend Jest + Testing Library setup with smoke tests for the UI
+  primitives and `clsx` helper, wired into CI.
 
 ### Changed
 - Aligned the frontend `Membership`/`Me` types with the `/auth/me` response
   shape, fixing the organisation switcher and active-org selection.
+- Rate limiting is now scoped per organisation (falling back to client IP)
+  instead of a single global bucket, so one noisy org no longer throttles
+  everyone.
 
 ### Security
 - Rotated `SECRET_KEY` in the production environment to a strong random value.
+- Removed the real Supabase URL/anon key from the CI workflow; builds now use
+  harmless placeholders (overridable via repository Variables).
 
 ## [0.1.0] - 2026-06-08
 
