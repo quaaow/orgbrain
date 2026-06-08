@@ -1,11 +1,16 @@
 import 'reflect-metadata';
-import { config as loadEnv } from 'dotenv';
 import * as Sentry from '@sentry/nestjs';
 
-// Loaded before the Nest app boots (and before @nestjs/config), so we read the
-// environment directly. In production the platform injects these vars; locally
-// dotenv fills them in from backend/.env.
-loadEnv();
+// Runs before the Nest app boots (and before @nestjs/config), so we read the
+// environment directly. In production the platform injects these vars and
+// dotenv isn't installed (dev-only dependency); locally it fills them in from
+// backend/.env. The require is therefore optional and failures are ignored.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  (require('dotenv') as typeof import('dotenv')).config();
+} catch {
+  // dotenv absent in production — env is already populated by the platform.
+}
 
 const dsn = process.env.SENTRY_DSN;
 
