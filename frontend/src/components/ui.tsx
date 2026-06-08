@@ -1,16 +1,15 @@
 'use client';
 
+import React from 'react';
 import { clsx } from './clsx';
 
-export function Card({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+export const Card = React.forwardRef<
+  HTMLDivElement,
+  { children: React.ReactNode; className?: string }
+>(function Card({ children, className }, ref) {
   return (
     <div
+      ref={ref}
       className={clsx(
         'rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.05] hover:shadow-lg hover:shadow-indigo-500/5',
         className,
@@ -19,7 +18,7 @@ export function Card({
       {children}
     </div>
   );
-}
+});
 
 export function Button({
   children,

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSession } from '@/components/session-provider';
 import { motion } from 'framer-motion';
-import { FloatingMockups } from './mockups';
+import { FloatingMockups, MockGraph } from './mockups';
 
 const FEATURES = [
   {
@@ -208,6 +208,21 @@ export default function LandingPage() {
               </div>
             </SectionFade>
           ))}
+        </div>
+      </section>
+
+      {/* Graph preview */}
+      <section className="mx-auto max-w-6xl px-5 py-16">
+        <SectionFade>
+          <h2 className="text-center text-3xl font-semibold tracking-tight">
+            See how it all connects
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-white/50">
+            Facts, decisions and lessons form a living graph — not a static wiki.
+          </p>
+        </SectionFade>
+        <div className="mt-10">
+          <MockGraph />
         </div>
       </section>
 

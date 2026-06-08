@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from '@/components/session-provider';
 import { Badge, Card, SkeletonCard } from '@/components/ui';
@@ -14,20 +14,32 @@ const NODE_COLOR: Record<GraphNodeType, string> = {
   lesson: '#f59e0b',
 };
 
-const ROW_H = 46;
-const TOP = 48;
-const COL_W = 300;
-const LEFT = 140;
+const ROW_H = 52;
+const TOP = 56;
+const COL_W = 320;
+const LEFT = 160;
 
 interface Positioned extends GraphNode {
   x: number;
   y: number;
 }
 
+interface ViewBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export default function GraphPage() {
   const { activeOrgId } = useSession();
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const load = useCallback(async () => {
     if (!activeOrgId) return;
@@ -58,10 +70,114 @@ export default function GraphPage() {
     return {
       positioned: pos,
       byId: map,
-      height: TOP + maxRows * ROW_H + 20,
-      width: LEFT + 2 * COL_W + 60,
+      height: TOP + maxRows * ROW_H + 30,
+      width: LEFT + 2 * COL_W + 80,
     };
   }, [data]);
+
+  // Fullscreen
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => undefined);
+    } else {
+      document.exitFullscreen().catch(() => undefined);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  // Zoom / Pan state
+  const [viewBox, setViewBox] = useState<ViewBox>({ x: 0, y: 0, w: width, h: height });
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0, vbX: 0, vbY: 0 });
+
+  useEffect(() => {
+    setViewBox({ x: 0, y: 0, w: width, h: height });
+  }, [width, height]);
+
+  const zoom = useCallback(
+    (factor: number, centerX?: number, centerY?: number) => {
+      setViewBox((prev) => {
+        const cx = centerX ?? prev.x + prev.w / 2;
+        const cy = centerY ?? prev.y + prev.h / 2;
+        const newW = Math.max(200, prev.w * factor);
+        const newH = Math.max(150, prev.h * factor);
+        return {
+          x: cx - (newW * (cx - prev.x)) / prev.w,
+          y: cy - (newH * (cy - prev.y)) / prev.h,
+          w: newW,
+          h: newH,
+        };
+      });
+    },
+    [],
+  );
+
+  const resetView = useCallback(() => {
+    setViewBox({ x: 0, y: 0, w: width, h: height });
+  }, [width, height]);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX - rect.left;
+      pt.y = e.clientY - rect.top;
+      const svgP = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+      const factor = e.deltaY > 0 ? 1.1 : 0.9;
+      zoom(factor, svgP.x, svgP.y);
+    },
+    [zoom],
+  );
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    isDragging.current = true;
+    dragStart.current = { x: e.clientX, y: e.clientY, vbX: viewBox.x, vbY: viewBox.y };
+  }, [viewBox]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging.current) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const scaleX = viewBox.w / rect.width;
+    const scaleY = viewBox.h / rect.height;
+    setViewBox((prev) => ({
+      ...prev,
+      x: dragStart.current.vbX - (e.clientX - dragStart.current.x) * scaleX,
+      y: dragStart.current.vbY - (e.clientY - dragStart.current.y) * scaleY,
+    }));
+  }, [viewBox]);
+
+  const handleMouseUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
+
+  // Connected edges and nodes for hovered node
+  const { connectedEdgeIds, connectedNodeIds } = useMemo(() => {
+    if (!hoveredNodeId || !data) {
+      return { connectedEdgeIds: new Set<string>(), connectedNodeIds: new Set<string>() };
+    }
+    const edgeIds = new Set<string>();
+    const nodeIds = new Set<string>();
+    for (const e of data.edges) {
+      if (e.source === hoveredNodeId || e.target === hoveredNodeId) {
+        edgeIds.add(e.id);
+        nodeIds.add(e.source);
+        nodeIds.add(e.target);
+      }
+    }
+    return { connectedEdgeIds: edgeIds, connectedNodeIds: nodeIds };
+  }, [hoveredNodeId, data]);
 
   if (!activeOrgId) {
     return <p className="text-white/50">Select or create an organisation first.</p>;
@@ -86,10 +202,44 @@ export default function GraphPage() {
       </FadeIn>
 
       <FadeIn delay={0.1}>
-        <div className="flex flex-wrap gap-3 text-xs">
-          <Legend color={NODE_COLOR.knowledge} label="Knowledge" />
-          <Legend color={NODE_COLOR.decision} label="Decision" />
-          <Legend color={NODE_COLOR.lesson} label="Lesson" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-3 text-xs">
+            <Legend color={NODE_COLOR.knowledge} label="Knowledge" />
+            <Legend color={NODE_COLOR.decision} label="Decision" />
+            <Legend color={NODE_COLOR.lesson} label="Lesson" />
+          </div>
+          {data && data.nodes.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => zoom(0.9)}
+                className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-sm text-white/70 transition-colors hover:bg-white/10"
+                title="Zoom in"
+              >
+                +
+              </button>
+              <button
+                onClick={() => zoom(1.1)}
+                className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-sm text-white/70 transition-colors hover:bg-white/10"
+                title="Zoom out"
+              >
+                −
+              </button>
+              <button
+                onClick={resetView}
+                className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-sm text-white/70 transition-colors hover:bg-white/10"
+                title="Reset view"
+              >
+                Reset
+              </button>
+              <button
+                onClick={toggleFullscreen}
+                className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-sm text-white/70 transition-colors hover:bg-white/10"
+                title="Fullscreen"
+              >
+                {isFullscreen ? 'Exit' : 'Fullscreen'}
+              </button>
+            </div>
+          )}
         </div>
       </FadeIn>
 
@@ -106,17 +256,34 @@ export default function GraphPage() {
         </FadeIn>
       ) : (
         <FadeIn delay={0.2}>
-          <Card className="overflow-x-auto">
+          <Card
+            ref={containerRef}
+            className={`relative overflow-hidden bg-[#0a0a0b] ${isFullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : ''}`}
+          >
             <svg
-              viewBox={`0 0 ${width} ${height}`}
-              className="w-full"
-              style={{ minWidth: Math.min(width, 600), height }}
-              preserveAspectRatio="xMidYMin meet"
+              ref={svgRef}
+              viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+              className={`w-full cursor-grab active:cursor-grabbing ${isFullscreen ? 'h-screen' : ''}`}
+              style={{ minWidth: Math.min(width, 600), height: isFullscreen ? '100vh' : height }}
+              onWheel={handleWheel}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
             >
+              {/* Grid dots */}
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="0.8" fill="rgba(255,255,255,0.04)" />
+              </pattern>
+              <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="url(#grid)" />
+
+              {/* Edges */}
               {data.edges.map((e, i) => {
                 const s = byId.get(e.source);
                 const t = byId.get(e.target);
                 if (!s || !t) return null;
+                const isConnected = hoveredNodeId && connectedEdgeIds.has(e.id);
+                const isDimmed = hoveredNodeId && !connectedEdgeIds.has(e.id);
                 const mx = (s.x + t.x) / 2;
                 const my = (s.y + t.y) / 2;
                 return (
@@ -131,49 +298,113 @@ export default function GraphPage() {
                       y1={s.y}
                       x2={t.x}
                       y2={t.y}
-                      stroke="rgba(255,255,255,0.18)"
-                      strokeWidth={1.5}
+                      stroke={isConnected ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.12)'}
+                      strokeWidth={isConnected ? 2.5 : 1.5}
+                      style={{ transition: 'all 0.2s', opacity: isDimmed ? 0.15 : 1 }}
                     />
                     <text
                       x={mx}
-                      y={my - 4}
+                      y={my - 5}
                       textAnchor="middle"
-                      className="fill-white/35"
-                      style={{ fontSize: 9 }}
+                      className="select-none"
+                      style={{ fontSize: 9, fill: isConnected ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', transition: 'all 0.2s', opacity: isDimmed ? 0.15 : 1 }}
                     >
                       {e.relation}
                     </text>
                   </motion.g>
                 );
               })}
-              {positioned.map((n, i) => (
-                <motion.g
-                  key={n.id}
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4, delay: 0.2 + i * 0.04, ease: 'easeOut' }}
-                  className="cursor-pointer"
-                >
-                  <title>{n.label}</title>
-                  <circle
-                    cx={n.x}
-                    cy={n.y}
-                    r={7}
-                    fill={NODE_COLOR[n.type]}
-                    className="transition-all duration-200 hover:r-10"
-                    style={{ filter: 'drop-shadow(0 0 4px ' + NODE_COLOR[n.type] + '40)' }}
-                  />
-                  <text
-                    x={n.x + 14}
-                    y={n.y + 4}
-                    className="fill-white/80 select-none"
-                    style={{ fontSize: 11 }}
+
+              {/* Nodes */}
+              {positioned.map((n, i) => {
+                const isHovered = hoveredNodeId === n.id;
+                const isConnected = hoveredNodeId ? (n.id === hoveredNodeId || connectedNodeIds.has(n.id)) : false;
+                const isDimmed = hoveredNodeId ? (!isConnected && n.id !== hoveredNodeId) : false;
+                return (
+                  <motion.g
+                    key={n.id}
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4, delay: 0.2 + i * 0.04, ease: 'easeOut' }}
+                    className="cursor-pointer"
+                    onMouseEnter={() => setHoveredNodeId(n.id)}
+                    onMouseLeave={() => setHoveredNodeId(null)}
                   >
-                    {n.label.length > 34 ? n.label.slice(0, 34) + '…' : n.label}
-                  </text>
-                </motion.g>
-              ))}
+                    {/* Glow ring on hover */}
+                    {isHovered && (
+                      <circle
+                        cx={n.x}
+                        cy={n.y}
+                        r={14}
+                        fill="none"
+                        stroke={NODE_COLOR[n.type]}
+                        strokeWidth={1}
+                        opacity={0.3}
+                      />
+                    )}
+                    <circle
+                      cx={n.x}
+                      cy={n.y}
+                      r={isHovered ? 9 : 7}
+                      fill={NODE_COLOR[n.type]}
+                      style={{
+                        filter: `drop-shadow(0 0 ${isHovered ? 8 : 4}px ${NODE_COLOR[n.type]}60)`,
+                        transition: 'all 0.2s',
+                        opacity: isDimmed ? 0.2 : 1,
+                      }}
+                    />
+                    <text
+                      x={n.x + 14}
+                      y={n.y + 4}
+                      className="select-none"
+                      style={{
+                        fontSize: 12,
+                        fill: isHovered ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)',
+                        fontWeight: isHovered ? 500 : 400,
+                        transition: 'all 0.2s',
+                        opacity: isDimmed ? 0.2 : 1,
+                      }}
+                    >
+                      {n.label.length > 36 ? n.label.slice(0, 36) + '…' : n.label}
+                    </text>
+                    {/* Tooltip on hover */}
+                    {isHovered && (
+                      <g>
+                        <rect
+                          x={n.x + 14}
+                          y={n.y + 14}
+                          width={120}
+                          height={36}
+                          rx={6}
+                          fill="rgba(15,15,18,0.95)"
+                          stroke="rgba(255,255,255,0.1)"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={n.x + 22}
+                          y={n.y + 28}
+                          style={{ fontSize: 10, fill: 'rgba(255,255,255,0.6)' }}
+                        >
+                          {n.type}
+                        </text>
+                        <text
+                          x={n.x + 22}
+                          y={n.y + 42}
+                          style={{ fontSize: 11, fill: 'rgba(255,255,255,0.9)' }}
+                        >
+                          {n.label.length > 24 ? n.label.slice(0, 24) + '…' : n.label}
+                        </text>
+                      </g>
+                    )}
+                  </motion.g>
+                );
+              })}
             </svg>
+
+            {/* Hint */}
+            <div className="pointer-events-none absolute bottom-3 left-3 text-[10px] text-white/30">
+              Scroll to zoom · Drag to pan
+            </div>
           </Card>
         </FadeIn>
       )}
