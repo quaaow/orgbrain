@@ -47,6 +47,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   warning is logged when it is enabled). Qdrant collection is now configurable
   via `QDRANT_COLLECTION` to keep dev/staging vectors out of production. Added
   `docs/ENVIRONMENTS.md` describing the dev/prod split.
+- Enabled Row Level Security on all application tables (`EnableRowLevelSecurity`
+  migration) to close Supabase's auto-exposed Data API: previously anyone with
+  the public `anon` key could read/write every row via `/rest/v1/<table>`,
+  bypassing the API and RBAC. The backend connects as the table owner
+  (BYPASSRLS), so it is unaffected.
 
 ## [0.1.0] - 2026-06-08
 
