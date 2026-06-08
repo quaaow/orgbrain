@@ -2,16 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppConfigService } from '../../config/app-config.service';
 import { AppConfigModule } from '../../config/config.module';
-import { Knowledge } from '../../entities/knowledge.entity';
-import { Decision } from '../../entities/decision.entity';
-import { Lesson } from '../../entities/lesson.entity';
-import { User } from '../../entities/user.entity';
-import { Organization } from '../../entities/organization.entity';
-import { Membership } from '../../entities/membership.entity';
-import { AuditLog } from '../../entities/audit-log.entity';
-import { EntityLink } from '../../entities/entity-link.entity';
-import { ReflectionRun } from '../../entities/reflection-run.entity';
-import { ExtractionItem } from '../../entities/extraction-item.entity';
+import { entities } from '../../entities';
 
 @Module({
   imports: [
@@ -21,18 +12,7 @@ import { ExtractionItem } from '../../entities/extraction-item.entity';
       useFactory: (config: AppConfigService) => ({
         type: 'postgres',
         url: config.databaseUrl,
-        entities: [
-          Knowledge,
-          Decision,
-          Lesson,
-          User,
-          Organization,
-          Membership,
-          AuditLog,
-          EntityLink,
-          ReflectionRun,
-          ExtractionItem,
-        ],
+        entities,
         // Mirrors the Python `Base.metadata.create_all` startup behaviour.
         synchronize: !config.isProduction,
         logging: !config.isProduction,

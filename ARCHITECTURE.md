@@ -219,6 +219,9 @@ from silently rotting.
 - Audit logging, rate limiting, OpenAPI/Swagger docs.
 - Production deployment: backend on Railway, frontend on Vercel, all secrets in
   platform env vars (no secrets in source).
+- Engineering hygiene: README + this document, MIT license, CHANGELOG, GitHub
+  issue/PR templates, a CI workflow (backend + frontend), a Jest test suite, and
+  TypeORM migration tooling.
 
 ---
 
@@ -227,8 +230,10 @@ from silently rotting.
 🚧 **Reliability & data**
 
 - **Database migrations.** `synchronize` is on only outside production; prod
-  relies on the schema already existing in the shared Supabase DB. Introduce
-  TypeORM migrations (or Supabase migrations) before any schema change.
+  relies on the schema already existing in the shared Supabase DB. Migration
+  tooling is now in place (`src/data-source.ts` + `migration:generate/run/revert`
+  scripts) — the remaining work is to generate and commit the initial migration
+  and wire `migrationsRun` (or a deploy step) for production.
 - **Background processing for Reflect.** Extraction is synchronous and can be
   slow on large inputs (chunk × LLM round-trips), risking request timeouts.
   Move it to a queue/worker (e.g. BullMQ, or a durable workflow) with a job
@@ -236,8 +241,9 @@ from silently rotting.
 - **Embedding model cold start.** MiniLM loads lazily in-process; the first
   request after a cold boot is slower. Consider warm-up on boot, a sidecar, or a
   hosted embedding API.
-- **Automated tests.** No test suite yet — add unit tests for guards/services
-  and e2e tests for the Reflect pipeline and tenant isolation.
+- **Automated tests.** Jest is configured with initial unit tests (text
+  chunking, role ranking, RBAC guard). Expand coverage with e2e tests for the
+  Reflect pipeline and database-backed tenant isolation.
 
 🚀 **Product capabilities**
 
@@ -257,8 +263,11 @@ from silently rotting.
 
 - **Observability** — structured logging, metrics, tracing, error reporting.
 - **Caching** — cache embeddings/search results for hot queries.
-- **Secrets** — replace the placeholder `SECRET_KEY` with a real secret and add
-  rotation; consider per-environment Supabase/Qdrant projects.
+- **Secrets** — `SECRET_KEY` has been rotated to a strong random value in
+  production. Note it is currently unused by application logic (access tokens are
+  Supabase-issued and verified via JWKS, **not** signed with `SECRET_KEY`); it is
+  retained for potential future signing needs. Consider per-environment
+  Supabase/Qdrant projects.
 - **Vercel Preview env** — `NEXT_PUBLIC_*` are set for Production + Development
   but not Preview (the CLI prompts for a git branch); add them for preview
   deployments.
@@ -268,14 +277,15 @@ from silently rotting.
 
 ## 8. What to do next (suggested order)
 
-1. **Adopt migrations** and stop relying on `synchronize` — this unblocks safe
-   schema evolution. *(Foundational; do this first.)*
+1. **Generate the initial migration** and stop relying on `synchronize` — the
+   tooling is ready (`npm run migration:generate -- src/migrations/InitialSchema`,
+   then `migration:run`). *(Foundational; do this first.)*
 2. **Make Reflect asynchronous** with a job queue + polling UI to remove the
    timeout risk and improve UX on large inputs.
-3. **Add a test suite** (tenant isolation, RBAC, Reflect apply idempotency) and
-   wire it into CI.
-4. **Harden secrets**: rotate `SECRET_KEY`, and rotate any keys that have been
-   committed locally; verify nothing sensitive lands in git history.
+3. **Expand the test suite** (database-backed tenant isolation, Reflect apply
+   idempotency) — initial unit tests and CI are already in place.
+4. **Audit secrets**: `SECRET_KEY` is rotated; verify no keys committed in dev
+   leak into git history and consider per-environment service projects.
 5. **Ship the first ingestion connector** (file/PDF upload) to drive real
    content volume into the Reflect pipeline.
 6. **Extend search** to embed decisions + lessons and add hybrid + reranking.

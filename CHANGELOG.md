@@ -1,0 +1,41 @@
+# Changelog
+
+All notable changes to this project are documented here. The format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- `README.md` and `ARCHITECTURE.md` documentation.
+- MIT `LICENSE` with a trademark notice for the OrgBrain name.
+- Continuous integration workflow (`.github/workflows/ci.yml`) building the
+  backend and frontend.
+- Issue and pull request templates under `.github/`.
+- TypeORM migration tooling (`data-source.ts` + `migration:*` npm scripts).
+- Jest test setup with initial unit tests (text chunking, role ranking).
+
+### Changed
+- Aligned the frontend `Membership`/`Me` types with the `/auth/me` response
+  shape, fixing the organisation switcher and active-org selection.
+
+### Security
+- Rotated `SECRET_KEY` in the production environment to a strong random value.
+
+## [0.1.0] - 2026-06-08
+
+### Added
+- Initial release.
+- Multi-tenant organisations with role-based access control
+  (owner / admin / member / viewer).
+- Supabase authentication with server-side JWKS verification.
+- Knowledge, decisions and lessons with full CRUD and provenance tracking.
+- Semantic search via local embeddings (`all-MiniLM-L6-v2`) and Qdrant.
+- AI Reflect pipeline: extract → near-duplicate detection → review → apply.
+- Knowledge graph with typed links and a graph endpoint + visualisation.
+- Freshness/stale review lifecycle for knowledge.
+- Audit logging, rate limiting, and OpenAPI/Swagger docs.
+- Deployment: backend on Railway, frontend on Vercel.
+
+[Unreleased]: https://github.com/quaaow/orgbrain/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/quaaow/orgbrain/releases/tag/v0.1.0

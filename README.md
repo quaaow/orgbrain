@@ -1,5 +1,10 @@
 # OrgBrain
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/quaaow/orgbrain/ci.yml?branch=main&label=CI)](https://github.com/quaaow/orgbrain/actions)
+[![Stars](https://img.shields.io/github/stars/quaaow/orgbrain?style=social)](https://github.com/quaaow/orgbrain/stargazers)
+![Built with](https://img.shields.io/badge/built%20with-NestJS%20%2B%20Next.js-000000)
+
 > Your organisation's memory — capture knowledge, decisions and lessons, then retrieve them by meaning.
 
 OrgBrain is a multi-tenant knowledge platform that turns raw organisational text
@@ -14,6 +19,34 @@ approved items into a semantic knowledge base backed by vector search.
 
 For the full system design, data model, and roadmap, see
 [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+---
+
+## Demo
+
+- **Try it live:** https://frontend-navy-xi-72.vercel.app
+- **API & Swagger:** https://orgbrain-production.up.railway.app/docs
+
+<!-- Drop screenshots into docs/ and uncomment to show them here:
+![Dashboard](docs/screenshot-dashboard.png)
+![Reflect inbox](docs/screenshot-reflect.png)
+![Knowledge graph](docs/screenshot-graph.png)
+-->
+
+## Why OrgBrain?
+
+|                         | OrgBrain                         | Notion          | Confluence      |
+| ----------------------- | -------------------------------- | --------------- | --------------- |
+| **AI extraction**       | Built-in (Reflect pipeline)      | Manual          | Manual          |
+| **Search**              | Semantic (vectors + meaning)     | Full-text       | Full-text       |
+| **Structured memory**   | Facts / decisions / lessons      | Free-form pages | Free-form pages |
+| **Knowledge graph**     | Typed links, first-class         | Backlinks only  | Limited         |
+| **API-first**           | Every feature has an endpoint    | Limited API     | Limited API     |
+| **Freshness lifecycle** | Built-in stale review            | None            | None            |
+| **Self-hosting**        | Yes (MIT, bring your own keys)   | No              | Self-managed DC |
+
+OrgBrain is not a wiki — it is a structured, queryable memory designed to be
+consumed by both humans and AI agents.
 
 ---
 
@@ -70,6 +103,25 @@ orgbrain/
         ├── components/ # shell, nav, session provider, UI primitives
         └── lib/        # api client, supabase client, shared types
 ```
+
+## Quick start (3 minutes)
+
+```bash
+# 1. Clone
+git clone https://github.com/quaaow/orgbrain.git
+cd orgbrain
+
+# 2. Backend (terminal 1)
+cd backend && cp .env.example .env   # fill in your keys
+npm install && npm run start:dev     # http://localhost:8000
+
+# 3. Frontend (terminal 2)
+cd frontend && cp .env.local.example .env.local   # fill in your keys
+npm install && npm run dev           # http://localhost:3000
+```
+
+You'll need a Supabase project, a Qdrant instance, and an OpenRouter API key.
+See [Local development](#local-development) below for the full variable list.
 
 ## Local development
 
@@ -162,4 +214,9 @@ and an `X-Org-Id` header. See Swagger for full request/response schemas.
 
 ## License
 
-Released under the [MIT License](./LICENSE).
+The source code is released under the [MIT License](./LICENSE).
+
+**Trademark notice.** The "OrgBrain" name and logo are trademarks of the
+project's author. The MIT license covers the source code only — it does not
+grant permission to use the OrgBrain name, logo, or branding to promote or
+endorse derivative or competing works without prior written permission.
