@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { SessionProvider } from '@/components/session-provider';
 import { Analytics } from '@/components/analytics';
+import { alt as previewImageAlt, size as previewImageSize } from '@/lib/preview-image';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://orgbrain.vercel.app';
 const title = 'OrgBrain — your organisation’s memory';
@@ -37,6 +38,12 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title,
     description,
+    images: {
+      url: '/opengraph-image',
+      alt: previewImageAlt,
+      width: previewImageSize.width,
+      height: previewImageSize.height,
+    },
   },
 };
 

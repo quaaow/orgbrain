@@ -50,6 +50,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   primitives and `clsx` helper, wired into CI.
 
 ### Changed
+- Frontend lint migrated from deprecated `next lint` to ESLint CLI with
+  `eslint.config.mjs` (flat config); CI no longer hangs on interactive setup.
 - Aligned the frontend `Membership`/`Me` types with the `/auth/me` response
   shape, fixing the organisation switcher and active-org selection.
 - Rate limiting is now scoped per organisation (falling back to client IP)

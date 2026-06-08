@@ -22,26 +22,29 @@ LLM-driven *Reflect* pipeline that always keeps a human in the loop.
 ### High-level topology
 
 ```
-┌──────────────┐      HTTPS (Bearer JWT + X-Org-Id)      ┌────────────────────┐
-│  Next.js app │  ───────────────────────────────────▶   │   NestJS API       │
-│  (Vercel)    │                                          │   (Railway/Docker) │
-└──────┬───────┘                                          └─────┬───────┬──────┘
-       │ Supabase JS (auth)                                     │       │
-       ▼                                                        │       │
-┌──────────────┐        JWKS verify (jose)                      │       │
-│  Supabase    │ ◀──────────────────────────────────────────────┘       │
-│  Auth + PG   │        SQL (TypeORM, PgBouncer pooler)                  │
-└──────────────┘ ◀──────────────────────────────────────────────────────┤
-                                                                         │
-┌──────────────┐        vector upsert / search                          │
-│  Qdrant      │ ◀───────────────────────────────────────────────────────┤
-│  Cloud       │                                                          │
-└──────────────┘                                                          │
-┌──────────────┐        chat completions                                 │
-│  OpenRouter  │ ◀────────────────────────────────────────────────────────┘
+┌──────────────┐   HTTPS (Bearer JWT + X-Org-Id, or X-Api-Key)   ┌────────────────────┐
+│  Next.js app │  ───────────────────────────────────────────▶   │   NestJS API       │
+│  (Vercel)    │                                                  │   (Railway/Docker) │
+│  / landing   │                                                  └─────┬───────┬──────┘
+│  /dashboard  │                                                        │       │
+└──────┬───────┘                                                        │       │
+       │ Supabase JS (auth)                                             │       │
+       ▼                                                                  │       │
+┌──────────────┐        JWKS verify (jose)                                │       │
+│  Supabase    │ ◀──────────────────────────────────────────────────────┘       │
+│  Auth + PG   │        SQL (TypeORM, PgBouncer pooler, RLS enabled)              │
+│  (RLS on)    │ ◀──────────────────────────────────────────────────────────────┤
+└──────────────┘                                                                  │
+┌──────────────┐        vector upsert / search                                    │
+│  Qdrant      │ ◀───────────────────────────────────────────────────────────────┤
+│  Cloud       │   (collection scoped via QDRANT_COLLECTION)                     │
+└──────────────┘                                                                  │
+┌──────────────┐        chat completions                                          │
+│  OpenRouter  │ ◀─────────────────────────────────────────────────────────────────┘
 └──────────────┘
 
-Embeddings (all-MiniLM-L6-v2) run *in-process* inside the NestJS container.
+Observability: Sentry (API + frontend), Plausible (frontend pageviews, optional).
+Embeddings (all-MiniLM-L6-v2) run in-process inside the NestJS container.
 ```
 
 ---
@@ -62,12 +65,19 @@ Embeddings (all-MiniLM-L6-v2) run *in-process* inside the NestJS container.
   remote JWKS (`createRemoteJWKSet`), issuer/audience checked.
 - **Validation**: `class-validator` / `class-transformer` for DTOs; **Joi** for
   environment variable validation at boot.
-- **Cross-cutting**: `@nestjs/throttler` rate limiting (100 req / 60s), an audit
-  interceptor, and `@nestjs/swagger` OpenAPI docs at `/docs` (+ `/docs-json`).
+- **Cross-cutting**: per-org rate limiting (`OrgThrottlerGuard`, 100 req / 60s),
+  a global exception filter (sanitised JSON errors; 5xx reported to Sentry),
+  an audit interceptor, CORS allow-list (`CORS_ORIGINS`), and `@nestjs/swagger`
+  OpenAPI docs at `/docs` (+ `/docs-json`).
+- **Migrations**: TypeORM migrations in `src/migrations/`; `migrationsRun` on
+  production boot. `DB_SYNCHRONIZE=true` opt-in for local dev only.
 
 ### Frontend (`frontend/`)
 
 - **Next.js 15** (App Router), **React 19**, TypeScript.
+- **Route groups**: public `(marketing)` — landing (`/`), `/terms`, `/privacy`;
+  authenticated `(app)` — `/dashboard`, `/search`, `/decisions`, `/reflect`,
+  `/graph`, `/members`; plus standalone `/login`.
 - **Tailwind CSS v4** (via `@tailwindcss/postcss`).
 - **Supabase JS** client for browser-side auth (session persisted in
   localStorage, auto-refresh).
@@ -75,6 +85,11 @@ Embeddings (all-MiniLM-L6-v2) run *in-process* inside the NestJS container.
   token (`Authorization: Bearer`) and the active org (`X-Org-Id`) to every
   request.
 - Client-side **session/org context** provider drives the org switcher.
+- **SEO & launch**: Open Graph / Twitter metadata, dynamic OG image, favicon,
+  public legal pages, optional Plausible analytics (`components/analytics.tsx`).
+- **Error monitoring**: `@sentry/nextjs` (client, server, edge, global-error).
+- **Linting**: ESLint flat config (`eslint.config.mjs`) with `eslint-config-next`;
+  CI runs `eslint .` (not the deprecated `next lint`).
 
 ### Infrastructure
 
@@ -82,7 +97,10 @@ Embeddings (all-MiniLM-L6-v2) run *in-process* inside the NestJS container.
   build → prune dev deps → slim runtime). Binds `0.0.0.0:$PORT`.
 - **Frontend** → Vercel, root directory `frontend/`. `NEXT_PUBLIC_*` are project
   env vars baked into the static build.
-- **Managed services**: Supabase (Auth + Postgres), Qdrant Cloud, OpenRouter.
+- **Production URLs**: frontend `https://orgbrain-sable.vercel.app`, API
+  `https://orgbrain-production.up.railway.app`.
+- **Managed services**: Supabase (Auth + Postgres), Qdrant Cloud, OpenRouter,
+  Sentry, Plausible (optional).
 
 ---
 
@@ -106,6 +124,7 @@ All persistent entities extend a common base.
 | `ReflectionRun`   | `status`, `inputChars`, `chunkCount`, `model`, `counts`                                      | One Reflect invocation. |
 | `ExtractionItem`  | `kind` (`fact`/`decision`/`lesson`), `status`, `payload`, `confidence`, `localIndex`, `decisionRef`, `materializedId`, `duplicateOfId`, `duplicateScore` | Staged candidate awaiting review. |
 | `AuditLog`        | actor, action, target, metadata                                                             | Written by the audit interceptor. |
+| `ApiKey`          | `name`, `keyHash`, `keyPrefix`, `role`, `createdBy`, `expiresAt`, `revokedAt`               | Org-scoped programmatic access; raw key shown once. |
 
 ### Graph node & relation types
 
@@ -116,9 +135,10 @@ All persistent entities extend a common base.
 ### Two stores, one source of truth
 
 PostgreSQL is the **system of record**. Qdrant is a **derived index**: each
-materialised fact is embedded and upserted as a point in the
-`orgbrain_knowledge` collection, keyed by the knowledge `id`, with an `org_id`
-payload field (keyword-indexed) for tenant-scoped filtering.
+materialised fact is embedded and upserted as a point in the configured
+`QDRANT_COLLECTION` (default `orgbrain_knowledge`), keyed by the knowledge
+`id`, with an `org_id` payload field (keyword-indexed) for tenant-scoped
+filtering.
 
 ---
 
@@ -141,8 +161,25 @@ Three layers of guards run on protected routes:
    `viewer < member < admin < owner`). Reads are generally `viewer`+, writes are
    `member`+, membership management is `admin`+.
 
-Tenant isolation is enforced **per query**: every service filters by `orgId`,
-and every Qdrant search uses an `org_id` filter.
+Tenant isolation is enforced at three levels:
+
+1. **Application layer** — every service filters by `orgId`; every Qdrant search
+   uses an `org_id` filter; guards enforce membership and roles.
+2. **API keys** — bound to a single org and role; cannot override org context.
+3. **Database RLS** — Row Level Security is enabled on all application tables so
+   the Supabase PostgREST Data API cannot bypass the NestJS API with the public
+   `anon` key. The backend connects as the table owner (BYPASSRLS) and is
+   unaffected.
+
+Additional hardening:
+
+- **CORS** — configurable allow-list (`CORS_ORIGINS`); credentials enabled only
+  when an allow-list is set.
+- **Reflect quota** — per-org daily cap (`REFLECT_DAILY_LIMIT`, default 50)
+  enforced before LLM calls (HTTP 429).
+- **Error responses** — global exception filter returns sanitised JSON; internal
+  details never leak to clients. Unhandled/5xx errors are reported to Sentry
+  with minimal context (user id, org id, method, path — no bodies or PII).
 
 ---
 
@@ -153,7 +190,12 @@ and every Qdrant search uses an `org_id` filter.
 ```
 Browser (Supabase JS) ──login──▶ Supabase Auth ──JWT──▶ stored in localStorage
 Browser ──Bearer JWT + X-Org-Id──▶ API ──JWKS verify──▶ user provisioned ──▶ org/role resolved
+
+Programmatic ──X-Api-Key: ob_...──▶ API ──hash lookup──▶ org/role from key (no X-Org-Id needed)
 ```
+
+Public routes: marketing landing (`/`), `/terms`, `/privacy`, `/login`. Authenticated
+app lives under `(app)/` (`/dashboard`, `/search`, …).
 
 ### 5.2 Semantic search
 
@@ -209,23 +251,33 @@ from silently rotting.
 
 ## 6. What's done (current status)
 
-✅ **Shipped and deployed (MVP):**
+✅ **Shipped and deployed:**
 
-- Multi-tenant orgs + onboarding + org switcher.
+- Multi-tenant orgs + onboarding + org switcher + members management UI.
 - Supabase auth end-to-end (frontend login/signup → backend JWKS verification).
+- API-key authentication for programmatic (SDK / MCP) access.
 - RBAC with four roles and a role hierarchy.
 - Knowledge / Decisions / Lessons full CRUD with provenance tracking.
 - Semantic search via local embeddings + Qdrant (zero embedding cost).
 - AI Reflect pipeline: extract → near-duplicate detection → review inbox →
-  apply, with cross-chunk de-duplication.
+  apply, with cross-chunk de-duplication and per-org daily quota.
 - Knowledge graph (typed edges + `/graph`) with frontend visualisation.
 - Freshness/stale review lifecycle.
-- Audit logging, rate limiting, OpenAPI/Swagger docs.
-- Production deployment: backend on Railway, frontend on Vercel, all secrets in
-  platform env vars (no secrets in source).
-- Engineering hygiene: README + this document, MIT license, CHANGELOG, GitHub
-  issue/PR templates, a CI workflow (backend + frontend), a Jest test suite, and
-  TypeORM migration tooling.
+- Audit logging, per-org rate limiting, CORS allow-list, sanitised error
+  responses, OpenAPI/Swagger docs, deep health check (`/health/deep`).
+- Dev/prod environment separation (`DB_SYNCHRONIZE`, `QDRANT_COLLECTION`,
+  separate Supabase projects — see `docs/ENVIRONMENTS.md`).
+- Row Level Security on all Supabase tables.
+- TypeORM migrations with `migrationsRun` on production boot.
+- Public marketing landing page, Terms/Privacy, SEO/OG previews, favicon.
+- Sentry error monitoring (backend + frontend).
+- Plausible analytics (frontend, optional via env).
+- Production deployment: backend on Railway, frontend on Vercel
+  (`orgbrain-sable.vercel.app`), secrets in platform env vars only.
+- Engineering hygiene: README + this document, MIT license, CHANGELOG,
+  GitHub issue/PR templates, CI (backend build/test + frontend lint/test/build),
+  Jest test suites (backend + frontend), ESLint flat config, TypeORM migration
+  tooling.
 
 ---
 
@@ -233,68 +285,59 @@ from silently rotting.
 
 🚧 **Reliability & data**
 
-- **Database migrations.** Migrations are now the production source of truth:
-  `synchronize` runs only outside production, and `migrationsRun` applies pending
-  migrations on production boot. The first migration (`AddApiKeys`) is committed;
-  the older tables predate migrations (created via `synchronize`), so generate a
-  baseline if you ever need to rebuild from scratch. Day-to-day: change an
-  entity, run `npm run migration:generate -- src/migrations/<Name>`, commit it.
 - **Background processing for Reflect.** Extraction is synchronous and can be
   slow on large inputs (chunk × LLM round-trips), risking request timeouts.
   Move it to a queue/worker (e.g. BullMQ, or a durable workflow) with a job
   status the UI can poll.
+- **Baseline migration.** Older tables predate migrations (created via
+  `synchronize`); generate a baseline if you ever need to rebuild from scratch.
+  Day-to-day: change an entity → `npm run migration:generate -- src/migrations/<Name>` → commit.
 - **Embedding model cold start.** MiniLM loads lazily in-process; the first
-  request after a cold boot is slower. Consider warm-up on boot, a sidecar, or a
-  hosted embedding API.
-- **Automated tests.** Jest is configured with initial unit tests (text
-  chunking, role ranking, RBAC guard). Expand coverage with e2e tests for the
-  Reflect pipeline and database-backed tenant isolation.
+  request after a cold boot is slower. Consider warm-up on boot or a hosted
+  embedding API.
+- **Automated tests.** Jest is configured with initial unit/smoke tests. Expand
+  coverage with database-backed tenant isolation, Reflect apply idempotency, and
+  auth guard integration tests.
 
 🚀 **Product capabilities**
 
+- **Onboarding & demo data.** Seed sample knowledge/decisions for new orgs so
+  first-time users see value immediately; improve empty states.
+- **Landing polish.** Product screenshots, mobile UX pass, custom domain.
 - **Ingestion connectors.** File/PDF upload, plus Slack / Notion / Google Docs /
   GitHub importers feeding the Reflect pipeline.
 - **Hybrid search.** Combine vector search with Postgres full-text / keyword and
   add a reranking stage; embed decisions and lessons too (today only facts are
   vectorised).
-- **Richer graph.** Auto-suggest links (`relates_to`, `supersedes`,
-  `duplicate_of`), graph-aware retrieval, and decision supersession chains.
-- **Q&A / RAG agent.** Use `/context` to power a chat interface that answers
-  org questions with citations.
+- **Richer graph.** Auto-suggest links, graph-aware retrieval, decision
+  supersession chains.
+- **Q&A / RAG agent.** Use `/context` to power a chat interface with citations.
 - **Notifications & digests.** Alert owners about stale knowledge and pending
   Reflect runs.
 
 🔭 **Platform & ops**
 
-- **Observability** — Sentry error monitoring is wired into both apps
-  (backend unhandled/5xx errors with org/user context; frontend client, server
-  and global render errors), gated on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`.
-  Still to add: structured logging, metrics and distributed tracing.
+- **Observability (continued)** — structured logging, metrics, distributed
+  tracing (Sentry covers errors today).
 - **Caching** — cache embeddings/search results for hot queries.
-- **Secrets** — `SECRET_KEY` has been rotated to a strong random value in
-  production. Note it is currently unused by application logic (access tokens are
-  Supabase-issued and verified via JWKS, **not** signed with `SECRET_KEY`); it is
-  retained for potential future signing needs. Consider per-environment
-  Supabase/Qdrant projects.
-- **Vercel Preview env** — `NEXT_PUBLIC_*` are set for Production + Development
-  but not Preview (the CLI prompts for a git branch); add them for preview
-  deployments.
-- **Custom domains** for both frontend and API.
+- **Custom domains** for frontend and API (update `CORS_ORIGINS`,
+  `NEXT_PUBLIC_SITE_URL`, Plausible domain).
+- **Legal review** — Terms/Privacy are good-faith templates; have a lawyer review
+  before scaling (GDPR, OpenRouter as AI subprocessor).
+- **Email verification** — enable Supabase email confirmation to reduce spam
+  signups.
 
 ---
 
 ## 8. What to do next (suggested order)
 
-1. **Make Reflect asynchronous** with a job queue + polling UI to remove the
-   timeout risk and improve UX on large inputs.
-2. **Expand the test suite** (database-backed tenant isolation, Reflect apply
-   idempotency) — initial unit tests and CI are already in place.
-3. **Audit secrets**: `SECRET_KEY` is rotated; verify no keys committed in dev
-   leak into git history and consider per-environment service projects.
-4. **Ship the first ingestion connector** (file/PDF upload) to drive real
-   content volume into the Reflect pipeline.
-5. **Extend search** to embed decisions + lessons and add hybrid + reranking.
-6. **Layer in observability** (logs/metrics/tracing) before scaling usage.
+1. **Async Reflect** — job queue + polling UI (biggest reliability win).
+2. **Demo seed + empty states** — improve conversion from the landing page.
+3. **Expand test suite** — tenant isolation, Reflect apply, auth guards.
+4. **Landing screenshots + mobile pass** — before the next social push.
+5. **Custom domain** — `app.orgbrain.io` (or similar) + update CORS/OG/Plausible.
+6. **First ingestion connector** (file/PDF upload) to drive content volume.
+7. **Hybrid search + reranking** — embed decisions/lessons, combine with FTS.
 
 ---
 
@@ -303,14 +346,23 @@ from silently rotting.
 | Concern                | Location |
 | ---------------------- | -------- |
 | App wiring / modules   | `backend/src/app.module.ts` |
+| Sentry init (backend)  | `backend/src/instrument.ts`, `backend/src/main.ts` |
 | Config + env validation| `backend/src/config/` |
+| Exception filter       | `backend/src/common/filters/all-exceptions.filter.ts` |
+| Per-org throttling     | `backend/src/common/throttler/org-throttler.guard.ts` |
 | DB connection          | `backend/src/core/database/database.module.ts` |
+| Migrations             | `backend/src/migrations/` |
 | Embeddings             | `backend/src/core/embeddings/embeddings.service.ts` |
 | Vector store           | `backend/src/core/qdrant/qdrant.service.ts` |
 | LLM client             | `backend/src/core/llm/llm.service.ts` |
-| Auth guards            | `backend/src/auth/guards/` |
+| Auth + API keys        | `backend/src/auth/` |
 | Reflect pipeline       | `backend/src/modules/reflection/` |
 | Graph / links          | `backend/src/modules/links/` |
 | Data model             | `backend/src/entities/` |
+| Environments guide     | `docs/ENVIRONMENTS.md` |
 | Frontend API client    | `frontend/src/lib/api.ts` |
 | Frontend auth/session  | `frontend/src/lib/supabase.ts`, `frontend/src/components/session-provider.tsx` |
+| Marketing landing      | `frontend/src/app/(marketing)/` |
+| Authenticated app      | `frontend/src/app/(app)/` |
+| Analytics (Plausible)  | `frontend/src/components/analytics.tsx` |
+| ESLint config          | `frontend/eslint.config.mjs` |
