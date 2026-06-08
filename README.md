@@ -13,7 +13,7 @@ memory. An AI "Reflect" pipeline extracts **facts**, **decisions**, and
 **lessons** from free text, stages them for human review, and materialises the
 approved items into a semantic knowledge base backed by vector search.
 
-- **Live frontend:** orgbrain-sable.vercel.app
+- **Live frontend:** https://orgbrain-sable.vercel.app
 - **Live API:** https://orgbrain-production.up.railway.app
 - **API docs (Swagger):** https://orgbrain-production.up.railway.app/docs
 
@@ -24,7 +24,7 @@ For the full system design, data model, and roadmap, see
 
 ## Demo
 
-- **Try it live:** https://frontend-navy-xi-72.vercel.app
+- **Try it live:** https://orgbrain-sable.vercel.app
 - **API & Swagger:** https://orgbrain-production.up.railway.app/docs
 
 <!-- Drop screenshots into docs/ and uncomment to show them here:
