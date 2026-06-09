@@ -153,7 +153,7 @@ export class ReflectionService {
   async reflect(dto: ReflectRequestDto, orgId: string, userId: string | null) {
     await this.assertWithinDailyQuota(orgId);
 
-    const chunks = chunkText(dto.text);
+    const chunks = chunkText(dto.text, 6000, 200);
     if (chunks.length === 0) {
       throw new BadRequestException('Text is empty');
     }
@@ -183,6 +183,7 @@ export class ReflectionService {
     userId: string | null,
     chunks: string[],
   ) {
+    const totalStart = Date.now();
     const facts: CollectedFact[] = [];
     const decisions: CollectedDecision[] = [];
     const lessons: CollectedLesson[] = [];
@@ -192,8 +193,17 @@ export class ReflectionService {
     const decisionIndexByTitle = new Map<string, number>();
 
     try {
-      for (const chunk of chunks) {
-        const data = await this.extractChunk(chunk);
+      const llmStart = Date.now();
+      // Extract all chunks in parallel — free-tier models are slow, so
+      // parallelism is the biggest win for multi-chunk texts.
+      const chunkResults = await Promise.all(
+        chunks.map((chunk) => this.extractChunk(chunk)),
+      );
+      this.logger.log(
+        `LLM extraction done in ${Date.now() - llmStart}ms (${chunks.length} chunks)`,
+      );
+
+      for (const data of chunkResults) {
         if (!data) {
           continue;
         }
@@ -271,8 +281,31 @@ export class ReflectionService {
       const items: ExtractionItem[] = [];
       let duplicateCount = 0;
 
-      for (const fact of facts) {
-        const dup = await this.findDuplicate(fact.content, orgId);
+      // Batch duplicate checks: one embedding call for all facts, then parallel
+      // Qdrant searches. This is much faster than sequential per-fact checks.
+      const dupStart = Date.now();
+      let dupResults: ({ id: string; score: number } | null)[] = [];
+      if (facts.length > 0) {
+        try {
+          const vectors = await this.embeddings.createEmbeddingsBatch(
+            facts.map((f) => f.content),
+          );
+          dupResults = await Promise.all(
+            vectors.map((v) => this.findDuplicateByVector(v, orgId)),
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Batch duplicate check failed: ${(error as Error).message}`,
+          );
+          dupResults = new Array(facts.length).fill(null);
+        }
+      }
+      this.logger.log(
+        `Duplicate checks done in ${Date.now() - dupStart}ms (${facts.length} facts)`,
+      );
+
+      facts.forEach((fact, i) => {
+        const dup = dupResults[i];
         if (dup) {
           duplicateCount += 1;
         }
@@ -288,7 +321,7 @@ export class ReflectionService {
             duplicateScore: dup?.score ?? null,
           }),
         );
-      }
+      });
 
       for (const decision of decisions) {
         items.push(
@@ -337,6 +370,9 @@ export class ReflectionService {
         duplicates: duplicateCount,
       };
       await this.runRepo.save(run);
+      this.logger.log(
+        `Reflect run ${runId} complete in ${Date.now() - totalStart}ms`,
+      );
     } catch (error) {
       this.logger.error(
         `Reflect processing failed for run ${runId}: ${(error as Error).message}`,
@@ -387,6 +423,20 @@ export class ReflectionService {
   ): Promise<{ id: string; score: number } | null> {
     try {
       const vector = await this.embeddings.createEmbedding(content);
+      return this.findDuplicateByVector(vector, orgId);
+    } catch (error) {
+      this.logger.warn(
+        `Duplicate check skipped: ${(error as Error).message}`,
+      );
+    }
+    return null;
+  }
+
+  private async findDuplicateByVector(
+    vector: number[],
+    orgId: string,
+  ): Promise<{ id: string; score: number } | null> {
+    try {
       const hits = await this.qdrant.search(
         vector,
         1,
@@ -399,7 +449,7 @@ export class ReflectionService {
       }
     } catch (error) {
       this.logger.warn(
-        `Duplicate check skipped: ${(error as Error).message}`,
+        `Duplicate vector search skipped: ${(error as Error).message}`,
       );
     }
     return null;
