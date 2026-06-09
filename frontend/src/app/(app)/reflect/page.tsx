@@ -50,31 +50,18 @@ export default function ReflectPage() {
     if (!text.trim() || !activeOrgId) return;
     setBusy(true);
     setError(null);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 65000);
     try {
-      const res = await api.post<ReflectResult>(
-        '/reflect',
-        { text },
-        activeOrgId,
-        controller.signal,
-      );
-      clearTimeout(timeoutId);
+      const res = await api.post<ReflectResult>('/reflect', { text }, activeOrgId);
       setText('');
-      await loadRuns();
+      // Optimistically prepend the processing run so the user sees it immediately.
+      setRuns((prev) => [res.run, ...prev]);
       setOpenRun(res.run.id);
-      toast.show('Extraction complete', 'success');
     } catch (err) {
-      clearTimeout(timeoutId);
       const msg = err instanceof Error ? err.message : '';
       if (msg.includes('15000')) {
         setError('Text is too long. Maximum 15000 characters (~3000 words). Split into smaller parts.');
-      } else if (msg.includes('abort') || msg.includes('Abort')) {
-        setError('Extraction timed out (65s). Try a shorter text or try again later.');
       } else {
-        setError(
-          msg || 'Reflect failed (LLM may be rate-limited)',
-        );
+        setError(msg || 'Reflect failed (LLM may be rate-limited)');
       }
     } finally {
       setBusy(false);
@@ -94,7 +81,7 @@ export default function ReflectPage() {
           and lessons for you to review before saving.
         </p>
         <p className="mt-1 text-xs text-white/30">
-          Processing may take 10–30 seconds depending on text length.
+          Extraction runs in the background. Large texts may take 30–60 seconds.
         </p>
       </FadeIn>
 
@@ -176,6 +163,7 @@ function RunRow({
     );
     setItems(res.items);
     setLoading(false);
+    return res.run;
   }, [run.id, orgId]);
 
   useEffect(() => {
@@ -183,6 +171,19 @@ function RunRow({
       void loadItems();
     }
   }, [open, items, loadItems]);
+
+  // Poll while the run is being processed so items appear live.
+  useEffect(() => {
+    if (!open || run.status !== 'processing') return;
+    const interval = setInterval(() => {
+      void loadItems().then((updatedRun) => {
+        if (updatedRun && updatedRun.status !== 'processing') {
+          clearInterval(interval);
+        }
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [open, run.status, loadItems]);
 
   async function setItemStatus(id: string, status: 'approved' | 'rejected') {
     await api.patch(`/reflect/items/${id}`, { status }, orgId);
@@ -222,7 +223,17 @@ function RunRow({
         className="flex w-full items-center justify-between text-left"
       >
         <div className="flex items-center gap-2">
-          <Badge tone={run.status === 'applied' ? 'success' : run.status === 'discarded' ? 'danger' : 'neutral'}>
+          <Badge
+            tone={
+              run.status === 'applied'
+                ? 'success'
+                : run.status === 'discarded'
+                  ? 'danger'
+                  : run.status === 'processing'
+                    ? 'info'
+                    : 'neutral'
+            }
+          >
             {run.status}
           </Badge>
           <span className="text-sm text-white/70">
@@ -237,10 +248,22 @@ function RunRow({
 
       {open && (
         <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+          {run.status === 'processing' && (
+            <div className="flex items-center gap-2 text-sm text-white/50">
+              <span className="h-3 w-3 animate-pulse rounded-full bg-indigo-400" />
+              Extracting facts, decisions and lessons…
+            </div>
+          )}
           {loading || !items ? (
             <div className="space-y-2">
               <SkeletonCard />
             </div>
+          ) : items.length === 0 && run.status === 'processing' ? (
+            <div className="space-y-2">
+              <SkeletonCard />
+            </div>
+          ) : items.length === 0 ? (
+            <p className="text-sm text-white/40">No items extracted.</p>
           ) : (
             <>
               {items.map((it) => (
@@ -251,7 +274,7 @@ function RunRow({
                   onReject={() => setItemStatus(it.id, 'rejected')}
                 />
               ))}
-              {run.status !== 'applied' && run.status !== 'discarded' && (
+              {run.status !== 'applied' && run.status !== 'discarded' && run.status !== 'processing' && (
                 <div className="flex gap-2 pt-2">
                   <Button onClick={apply} disabled={busy}>
                     {busy ? '…' : 'Apply to knowledge base'}

@@ -2,6 +2,8 @@ import { Column, Entity } from 'typeorm';
 import { BaseEntity } from './base.entity';
 
 export enum ReflectionRunStatus {
+  /** LLM extraction is in progress. */
+  processing = 'processing',
   /** Extracted, awaiting human review. */
   pending = 'pending',
   /** All approved items were materialised. */
