@@ -62,6 +62,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setMe(null);
+        await supabase.auth.signOut();
+        setSession(null);
+        setActiveOrgIdState(null);
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(ORG_KEY);
+        }
       }
     }
   }, [setActiveOrgId]);

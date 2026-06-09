@@ -73,6 +73,37 @@ export default function OverviewPage() {
         </FadeIn>
       ) : (
         <>
+          <FadeIn delay={0.05}>
+            <Card className="border-indigo-500/20 bg-indigo-500/[0.03]">
+              <h2 className="mb-2 text-sm font-medium text-indigo-300">
+                👋 Welcome to your workspace
+              </h2>
+              <p className="mb-3 text-sm text-white/60">
+                We&apos;ve added demo data so you can explore right away. Try these:
+              </p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <OnboardingStep
+                  n={1}
+                  title="Search"
+                  desc='Try "Postgres" in semantic search'
+                  href="/search"
+                />
+                <OnboardingStep
+                  n={2}
+                  title="Reflect"
+                  desc="Paste meeting notes and watch AI extract insights"
+                  href="/reflect"
+                />
+                <OnboardingStep
+                  n={3}
+                  title="Graph"
+                  desc="Visualise how knowledge connects"
+                  href="/graph"
+                />
+              </div>
+            </Card>
+          </FadeIn>
+
           <FadeIn delay={0.1}>
             <Card>
               <div className="flex items-center justify-between">
@@ -156,6 +187,32 @@ export default function OverviewPage() {
         </>
       )}
     </div>
+  );
+}
+
+function OnboardingStep({
+  n,
+  title,
+  desc,
+  href,
+}: {
+  n: number;
+  title: string;
+  desc: string;
+  href: string;
+}) {
+  return (
+    <Link href={href}>
+      <div className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 transition-colors hover:border-indigo-400/40 hover:bg-white/[0.05]">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-medium text-indigo-300">
+          {n}
+        </span>
+        <div>
+          <div className="text-sm font-medium">{title}</div>
+          <div className="text-xs text-white/50">{desc}</div>
+        </div>
+      </div>
+    </Link>
   );
 }
 

@@ -50,20 +50,27 @@ export default function ReflectPage() {
     if (!text.trim() || !activeOrgId) return;
     setBusy(true);
     setError(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 65000);
     try {
       const res = await api.post<ReflectResult>(
         '/reflect',
         { text },
         activeOrgId,
+        controller.signal,
       );
+      clearTimeout(timeoutId);
       setText('');
       await loadRuns();
       setOpenRun(res.run.id);
       toast.show('Extraction complete', 'success');
     } catch (err) {
+      clearTimeout(timeoutId);
       const msg = err instanceof Error ? err.message : '';
       if (msg.includes('15000')) {
         setError('Text is too long. Maximum 15000 characters (~3000 words). Split into smaller parts.');
+      } else if (msg.includes('abort') || msg.includes('Abort')) {
+        setError('Extraction timed out (65s). Try a shorter text or try again later.');
       } else {
         setError(
           msg || 'Reflect failed (LLM may be rate-limited)',
@@ -85,6 +92,9 @@ export default function ReflectPage() {
         <p className="mt-1 text-white/50">
           Paste a postmortem, meeting notes or retro. We extract facts, decisions
           and lessons for you to review before saving.
+        </p>
+        <p className="mt-1 text-xs text-white/30">
+          Processing may take 10–30 seconds depending on text length.
         </p>
       </FadeIn>
 
