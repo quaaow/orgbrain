@@ -38,6 +38,7 @@ export default function GraphPage() {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipStyle, setTooltipStyle] = useState<{ left: number; top: number } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -231,17 +232,20 @@ export default function GraphPage() {
   }, [hoveredNode, viewBox, computeTooltipPos]);
 
   // Tooltip smart positioning
-  const tooltipStyle = useMemo(() => {
-    if (!tooltipPos || !containerRef.current) return {};
+  useEffect(() => {
+    if (!tooltipPos || !containerRef.current) {
+      setTooltipStyle(null);
+      return;
+    }
     const containerW = containerRef.current.clientWidth;
     const containerH = containerRef.current.clientHeight;
-    const tooltipW = 280;
-    const tooltipH = 160; // approximate max
+    const tooltipW = 260;
+    const tooltipH = 160;
     let left = tooltipPos.x + 18;
     let top = tooltipPos.y + 18;
     if (left + tooltipW > containerW) left = tooltipPos.x - tooltipW - 18;
     if (top + tooltipH > containerH) top = tooltipPos.y - tooltipH - 18;
-    return { left, top };
+    setTooltipStyle({ left, top });
   }, [tooltipPos]);
 
   if (!activeOrgId) {
@@ -445,7 +449,7 @@ export default function GraphPage() {
             </svg>
 
             {/* HTML Tooltip */}
-            {hoveredNode && tooltipPos && (
+            {hoveredNode && tooltipStyle && (
               <div
                 className="pointer-events-none absolute z-10 w-[260px] rounded-lg border border-white/10 bg-[#0f0f12]/95 p-3 shadow-2xl backdrop-blur-md"
                 style={tooltipStyle}
