@@ -158,6 +158,31 @@ export class ReflectionService {
       throw new BadRequestException('Text is empty');
     }
 
+    const run = await this.runRepo.save(
+      this.runRepo.create({
+        orgId,
+        status: ReflectionRunStatus.processing,
+        inputChars: dto.text.length,
+        chunkCount: chunks.length,
+        model: this.config.chatModel,
+        createdBy: userId,
+        counts: null,
+      }),
+    );
+
+    // Fire-and-forget background extraction so the HTTP response returns
+    // immediately and the frontend can poll for progress.
+    void this.processReflectRun(run.id, orgId, userId, chunks);
+
+    return { run: run.toDict() };
+  }
+
+  private async processReflectRun(
+    runId: string,
+    orgId: string,
+    userId: string | null,
+    chunks: string[],
+  ) {
     const facts: CollectedFact[] = [];
     const decisions: CollectedDecision[] = [];
     const lessons: CollectedLesson[] = [];
@@ -166,167 +191,165 @@ export class ReflectionService {
     const seenLessons = new Set<string>();
     const decisionIndexByTitle = new Map<string, number>();
 
-    for (const chunk of chunks) {
-      const data = await this.extractChunk(chunk);
-      if (!data) {
-        continue;
-      }
-
-      // Map this chunk's local decision indices to global localIndex values,
-      // merging duplicate decisions across chunks.
-      const chunkDecisionMap = new Map<number, number>();
-      const rawDecisions = (data.decisions as RawDecision[]) ?? [];
-      rawDecisions.forEach((raw, localIdx) => {
-        const title = String(raw.title ?? '').trim();
-        const reason = String(raw.reason ?? '').trim();
-        if (!title || !reason) {
-          return;
+    try {
+      for (const chunk of chunks) {
+        const data = await this.extractChunk(chunk);
+        if (!data) {
+          continue;
         }
-        const key = this.normalize(title);
-        let globalIdx = decisionIndexByTitle.get(key);
-        if (globalIdx === undefined) {
-          globalIdx = decisions.length;
-          decisionIndexByTitle.set(key, globalIdx);
-          decisions.push({
-            localIndex: globalIdx,
-            title: this.truncate(title),
-            reason,
-            outcome: String(raw.outcome ?? '').trim() || null,
+
+        // Map this chunk's local decision indices to global localIndex values,
+        // merging duplicate decisions across chunks.
+        const chunkDecisionMap = new Map<number, number>();
+        const rawDecisions = (data.decisions as RawDecision[]) ?? [];
+        rawDecisions.forEach((raw, localIdx) => {
+          const title = String(raw.title ?? '').trim();
+          const reason = String(raw.reason ?? '').trim();
+          if (!title || !reason) {
+            return;
+          }
+          const key = this.normalize(title);
+          let globalIdx = decisionIndexByTitle.get(key);
+          if (globalIdx === undefined) {
+            globalIdx = decisions.length;
+            decisionIndexByTitle.set(key, globalIdx);
+            decisions.push({
+              localIndex: globalIdx,
+              title: this.truncate(title),
+              reason,
+              outcome: String(raw.outcome ?? '').trim() || null,
+            });
+          }
+          chunkDecisionMap.set(localIdx, globalIdx);
+        });
+
+        const rawLessons = (data.lessons as RawLesson[]) ?? [];
+        for (const raw of rawLessons) {
+          const problem = String(raw.problem ?? '').trim();
+          const solution = String(raw.solution ?? '').trim();
+          if (!problem || !solution) {
+            continue;
+          }
+          const key = this.normalize(`${problem}|${solution}`);
+          if (seenLessons.has(key)) {
+            continue;
+          }
+          seenLessons.add(key);
+          const refRaw = Number(raw.decision_ref);
+          const decisionRef = Number.isInteger(refRaw)
+            ? (chunkDecisionMap.get(refRaw) ?? null)
+            : null;
+          lessons.push({
+            problem,
+            solution,
+            result: String(raw.result ?? '').trim() || null,
+            confidence: this.safeFloat(raw.confidence, 0.5),
+            decisionRef,
           });
         }
-        chunkDecisionMap.set(localIdx, globalIdx);
-      });
 
-      const rawLessons = (data.lessons as RawLesson[]) ?? [];
-      for (const raw of rawLessons) {
-        const problem = String(raw.problem ?? '').trim();
-        const solution = String(raw.solution ?? '').trim();
-        if (!problem || !solution) {
-          continue;
+        const rawFacts = (data.facts as RawFact[]) ?? [];
+        for (const raw of rawFacts) {
+          const content = String(raw.content ?? '').trim();
+          if (!content) {
+            continue;
+          }
+          const key = this.normalize(content);
+          if (seenFacts.has(key)) {
+            continue;
+          }
+          seenFacts.add(key);
+          facts.push({
+            content,
+            importance: this.safeFloat(raw.importance, 0.5),
+          });
         }
-        const key = this.normalize(`${problem}|${solution}`);
-        if (seenLessons.has(key)) {
-          continue;
-        }
-        seenLessons.add(key);
-        const refRaw = Number(raw.decision_ref);
-        const decisionRef = Number.isInteger(refRaw)
-          ? (chunkDecisionMap.get(refRaw) ?? null)
-          : null;
-        lessons.push({
-          problem,
-          solution,
-          result: String(raw.result ?? '').trim() || null,
-          confidence: this.safeFloat(raw.confidence, 0.5),
-          decisionRef,
-        });
       }
 
-      const rawFacts = (data.facts as RawFact[]) ?? [];
-      for (const raw of rawFacts) {
-        const content = String(raw.content ?? '').trim();
-        if (!content) {
-          continue;
+      const run = await this.getRunOr404(runId, orgId);
+
+      const items: ExtractionItem[] = [];
+      let duplicateCount = 0;
+
+      for (const fact of facts) {
+        const dup = await this.findDuplicate(fact.content, orgId);
+        if (dup) {
+          duplicateCount += 1;
         }
-        const key = this.normalize(content);
-        if (seenFacts.has(key)) {
-          continue;
-        }
-        seenFacts.add(key);
-        facts.push({
-          content,
-          importance: this.safeFloat(raw.importance, 0.5),
-        });
+        items.push(
+          this.itemRepo.create({
+            orgId,
+            runId: run.id,
+            kind: ExtractionKind.fact,
+            status: dup ? ExtractionStatus.duplicate : ExtractionStatus.pending,
+            payload: { content: fact.content, importance: fact.importance },
+            confidence: fact.importance,
+            duplicateOfId: dup?.id ?? null,
+            duplicateScore: dup?.score ?? null,
+          }),
+        );
       }
-    }
 
-    const run = await this.runRepo.save(
-      this.runRepo.create({
-        orgId,
-        status: ReflectionRunStatus.pending,
-        inputChars: dto.text.length,
-        chunkCount: chunks.length,
-        model: this.config.chatModel,
-        createdBy: userId,
-        counts: {
-          facts: facts.length,
-          decisions: decisions.length,
-          lessons: lessons.length,
-          duplicates: 0,
-        },
-      }),
-    );
-
-    const items: ExtractionItem[] = [];
-    let duplicateCount = 0;
-
-    for (const fact of facts) {
-      const dup = await this.findDuplicate(fact.content, orgId);
-      if (dup) {
-        duplicateCount += 1;
+      for (const decision of decisions) {
+        items.push(
+          this.itemRepo.create({
+            orgId,
+            runId: run.id,
+            kind: ExtractionKind.decision,
+            status: ExtractionStatus.pending,
+            payload: {
+              title: decision.title,
+              reason: decision.reason,
+              outcome: decision.outcome,
+            },
+            confidence: 0.7,
+            localIndex: decision.localIndex,
+          }),
+        );
       }
-      items.push(
-        this.itemRepo.create({
-          orgId,
-          runId: run.id,
-          kind: ExtractionKind.fact,
-          status: dup ? ExtractionStatus.duplicate : ExtractionStatus.pending,
-          payload: { content: fact.content, importance: fact.importance },
-          confidence: fact.importance,
-          duplicateOfId: dup?.id ?? null,
-          duplicateScore: dup?.score ?? null,
-        }),
-      );
-    }
 
-    for (const decision of decisions) {
-      items.push(
-        this.itemRepo.create({
-          orgId,
-          runId: run.id,
-          kind: ExtractionKind.decision,
-          status: ExtractionStatus.pending,
-          payload: {
-            title: decision.title,
-            reason: decision.reason,
-            outcome: decision.outcome,
-          },
-          confidence: 0.7,
-          localIndex: decision.localIndex,
-        }),
-      );
-    }
-
-    for (const lesson of lessons) {
-      items.push(
-        this.itemRepo.create({
-          orgId,
-          runId: run.id,
-          kind: ExtractionKind.lesson,
-          status: ExtractionStatus.pending,
-          payload: {
-            problem: lesson.problem,
-            solution: lesson.solution,
-            result: lesson.result,
+      for (const lesson of lessons) {
+        items.push(
+          this.itemRepo.create({
+            orgId,
+            runId: run.id,
+            kind: ExtractionKind.lesson,
+            status: ExtractionStatus.pending,
+            payload: {
+              problem: lesson.problem,
+              solution: lesson.solution,
+              result: lesson.result,
+              confidence: lesson.confidence,
+            },
             confidence: lesson.confidence,
-          },
-          confidence: lesson.confidence,
-          decisionRef: lesson.decisionRef,
-        }),
-      );
-    }
+            decisionRef: lesson.decisionRef,
+          }),
+        );
+      }
 
-    const saved = await this.itemRepo.save(items);
+      await this.itemRepo.save(items);
 
-    if (duplicateCount > 0 && run.counts) {
-      run.counts = { ...run.counts, duplicates: duplicateCount };
+      run.status = ReflectionRunStatus.pending;
+      run.counts = {
+        facts: facts.length,
+        decisions: decisions.length,
+        lessons: lessons.length,
+        duplicates: duplicateCount,
+      };
       await this.runRepo.save(run);
+    } catch (error) {
+      this.logger.error(
+        `Reflect processing failed for run ${runId}: ${(error as Error).message}`,
+      );
+      const run = await this.runRepo.findOne({
+        where: { id: runId, orgId },
+      });
+      if (run) {
+        run.status = ReflectionRunStatus.pending;
+        run.counts = { facts: 0, decisions: 0, lessons: 0, duplicates: 0 };
+        await this.runRepo.save(run);
+      }
     }
-
-    return {
-      run: run.toDict(),
-      items: saved.map((i) => i.toDict()),
-    };
   }
 
   private async extractChunk(

@@ -97,7 +97,7 @@ export interface ExtractionItem {
 
 export interface ReflectionRun {
   id: string;
-  status: 'pending' | 'applied' | 'partial' | 'discarded';
+  status: 'processing' | 'pending' | 'applied' | 'partial' | 'discarded';
   input_chars: number;
   chunk_count: number;
   counts: {
@@ -111,7 +111,6 @@ export interface ReflectionRun {
 
 export interface ReflectResult {
   run: ReflectionRun;
-  items: ExtractionItem[];
 }
 
 export type GraphNodeType = 'knowledge' | 'decision' | 'lesson';
