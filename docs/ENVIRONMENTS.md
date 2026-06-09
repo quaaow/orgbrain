@@ -148,6 +148,18 @@ includes `backend/railway.toml` for config-as-code.
 
 Set **all** of these env vars (not the prod values):
 
+
+Create a second Railway service from the same repo (`backend/Dockerfile`) or add
+a `development` environment.
+
+**Build settings (required for monorepo):** in the dev service → Settings →
+set **Root Directory** to `/backend`, **Builder** to `Dockerfile`, **Dockerfile
+path** to `Dockerfile`. Without this, Railway runs Railpack at the repo root and
+the build fails with “could not determine how to build the app”. The repo also
+includes `backend/railway.toml` for config-as-code.
+
+Set **all** of these env vars (not the prod values):
+
 | Variable | Development value |
 | -------- | ----------------- |
 | `APP_ENV` | `development` |
