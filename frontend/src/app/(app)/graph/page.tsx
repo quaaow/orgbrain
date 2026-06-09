@@ -154,15 +154,23 @@ export default function GraphPage() {
     [viewBox],
   );
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // Wheel zoom with passive: false to prevent page scroll
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const handler = (e: WheelEvent) => {
       e.preventDefault();
-      const svgP = screenToSvg(e.clientX, e.clientY);
+      const rect = svg.getBoundingClientRect();
+      const scaleX = viewBox.w / rect.width;
+      const scaleY = viewBox.h / rect.height;
+      const x = viewBox.x + (e.clientX - rect.left) * scaleX;
+      const y = viewBox.y + (e.clientY - rect.top) * scaleY;
       const factor = e.deltaY > 0 ? 1.1 : 0.9;
-      zoom(factor, svgP.x, svgP.y);
-    },
-    [zoom, screenToSvg],
-  );
+      zoom(factor, x, y);
+    };
+    svg.addEventListener('wheel', handler, { passive: false });
+    return () => svg.removeEventListener('wheel', handler);
+  }, [zoom, viewBox]);
 
   // Pan handlers (canvas drag)
   const handleMouseDown = useCallback(
@@ -381,7 +389,6 @@ export default function GraphPage() {
               viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
               className={`w-full cursor-grab active:cursor-grabbing ${isFullscreen ? 'h-screen' : ''}`}
               style={{ minWidth: Math.min(width, 600), height: isFullscreen ? '100vh' : height }}
-              onWheel={handleWheel}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -400,8 +407,6 @@ export default function GraphPage() {
                 if (!s || !t) return null;
                 const isConnected = hoveredNodeId && connectedEdgeIds.has(e.id);
                 const isDimmed = hoveredNodeId && !connectedEdgeIds.has(e.id);
-                const mx = (s.x + t.x) / 2;
-                const my = (s.y + t.y) / 2;
                 return (
                   <motion.g
                     key={e.id}
@@ -418,20 +423,6 @@ export default function GraphPage() {
                       strokeWidth={isConnected ? 2.5 : 1.5}
                       style={{ transition: 'all 0.2s', opacity: isDimmed ? 0.15 : 1 }}
                     />
-                    <text
-                      x={mx}
-                      y={my - 5}
-                      textAnchor="middle"
-                      className="select-none"
-                      style={{
-                        fontSize: 9,
-                        fill: isConnected ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)',
-                        transition: 'all 0.2s',
-                        opacity: isDimmed ? 0.15 : 1,
-                      }}
-                    >
-                      {e.relation}
-                    </text>
                   </motion.g>
                 );
               })}
@@ -557,7 +548,7 @@ export default function GraphPage() {
                       <span className="max-w-[150px] truncate sm:max-w-[200px]">
                         {s?.label ?? e.source.slice(0, 8)}
                       </span>
-                      <span className="text-white/40">—{e.relation}→</span>
+                      <span className="text-white/40">—{e.relation.replace(/_/g, ' ')}→</span>
                       <Badge>{t?.type ?? e.target_type}</Badge>
                       <span className="max-w-[150px] truncate sm:max-w-[200px]">
                         {t?.label ?? e.target.slice(0, 8)}
