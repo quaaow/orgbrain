@@ -76,15 +76,20 @@ Embeddings (all-MiniLM-L6-v2) run in-process inside the NestJS container.
 
 - **Next.js 15** (App Router), **React 19**, TypeScript.
 - **Route groups**: public `(marketing)` — landing (`/`), `/terms`, `/privacy`;
-  authenticated `(app)` — `/dashboard`, `/search`, `/decisions`, `/reflect`,
-  `/graph`, `/members`; plus standalone `/login`.
+  authenticated `(app)` — `/dashboard`, `/search`, `/decisions`, `/lessons`,
+  `/reflect`, `/graph`, `/members`, `/api-keys`; plus standalone `/login`.
 - **Tailwind CSS v4** (via `@tailwindcss/postcss`).
+- **Framer Motion** for page transitions, staggered lists, and scroll-triggered
+  animations.
 - **Supabase JS** client for browser-side auth (session persisted in
   localStorage, auto-refresh).
 - A thin **API client** (`src/lib/api.ts`) that attaches the Supabase access
   token (`Authorization: Bearer`) and the active org (`X-Org-Id`) to every
   request.
 - Client-side **session/org context** provider drives the org switcher.
+- **UI polish**: skeleton loaders (`SkeletonCard`), toast notifications
+  (`ToastProvider` + `useToast`), responsive mobile layout with burger nav,
+  and hover/active micro-interactions on cards and buttons.
 - **SEO & launch**: Open Graph / Twitter metadata, dynamic OG image, favicon,
   public legal pages, optional Plausible analytics (`components/analytics.tsx`).
 - **Error monitoring**: `@sentry/nextjs` (client, server, edge, global-error).
@@ -255,13 +260,18 @@ from silently rotting.
 
 - Multi-tenant orgs + onboarding + org switcher + members management UI.
 - Supabase auth end-to-end (frontend login/signup → backend JWKS verification).
-- API-key authentication for programmatic (SDK / MCP) access.
+- API-key authentication for programmatic (SDK / MCP) access; frontend `/api-keys`
+  page for mint/revoke (admin only).
 - RBAC with four roles and a role hierarchy.
 - Knowledge / Decisions / Lessons full CRUD with provenance tracking.
 - Semantic search via local embeddings + Qdrant (zero embedding cost).
 - AI Reflect pipeline: extract → near-duplicate detection → review inbox →
-  apply, with cross-chunk de-duplication and per-org daily quota.
-- Knowledge graph (typed edges + `/graph`) with frontend visualisation.
+  apply, with cross-chunk de-duplication, per-org daily quota, and a 15,000-char
+  input limit with live counter.
+- Knowledge graph (typed edges + `/graph`) with interactive frontend
+  visualisation: fullscreen, zoom/pan, hover highlighting, and content tooltips.
+- Demo seed: new organisations automatically receive sample knowledge, decisions,
+  lessons and graph links.
 - Freshness/stale review lifecycle.
 - Audit logging, per-org rate limiting, CORS allow-list, sanitised error
   responses, OpenAPI/Swagger docs, deep health check (`/health/deep`).
@@ -269,7 +279,9 @@ from silently rotting.
   separate Supabase projects — see `docs/ENVIRONMENTS.md`).
 - Row Level Security on all Supabase tables.
 - TypeORM migrations with `migrationsRun` on production boot.
-- Public marketing landing page, Terms/Privacy, SEO/OG previews, favicon.
+- Public marketing landing page with product screenshots, scroll-triggered
+  animations, mini-graph preview, and mobile-responsive layout.
+- Terms/Privacy pages, SEO/OG previews, favicon.
 - Sentry error monitoring (backend + frontend).
 - Plausible analytics (frontend, optional via env).
 - Production deployment: backend on Railway, frontend on Vercel
@@ -301,9 +313,6 @@ from silently rotting.
 
 🚀 **Product capabilities**
 
-- **Onboarding & demo data.** Seed sample knowledge/decisions for new orgs so
-  first-time users see value immediately; improve empty states.
-- **Landing polish.** Product screenshots, mobile UX pass, custom domain.
 - **Ingestion connectors.** File/PDF upload, plus Slack / Notion / Google Docs /
   GitHub importers feeding the Reflect pipeline.
 - **Hybrid search.** Combine vector search with Postgres full-text / keyword and
@@ -332,12 +341,10 @@ from silently rotting.
 ## 8. What to do next (suggested order)
 
 1. **Async Reflect** — job queue + polling UI (biggest reliability win).
-2. **Demo seed + empty states** — improve conversion from the landing page.
-3. **Expand test suite** — tenant isolation, Reflect apply, auth guards.
-4. **Landing screenshots + mobile pass** — before the next social push.
-5. **Custom domain** — `app.orgbrain.io` (or similar) + update CORS/OG/Plausible.
-6. **First ingestion connector** (file/PDF upload) to drive content volume.
-7. **Hybrid search + reranking** — embed decisions/lessons, combine with FTS.
+2. **Expand test suite** — tenant isolation, Reflect apply, auth guards.
+3. **Custom domain** — `app.orgbrain.io` (or similar) + update CORS/OG/Plausible.
+4. **First ingestion connector** (file/PDF upload) to drive content volume.
+5. **Hybrid search + reranking** — embed decisions/lessons, combine with FTS.
 
 ---
 
@@ -362,6 +369,8 @@ from silently rotting.
 | Environments guide     | `docs/ENVIRONMENTS.md` |
 | Frontend API client    | `frontend/src/lib/api.ts` |
 | Frontend auth/session  | `frontend/src/lib/supabase.ts`, `frontend/src/components/session-provider.tsx` |
+| Frontend UI / motion   | `frontend/src/components/ui.tsx`, `frontend/src/components/motion.tsx` |
+| Toast notifications    | `frontend/src/components/toast.tsx` |
 | Marketing landing      | `frontend/src/app/(marketing)/` |
 | Authenticated app      | `frontend/src/app/(app)/` |
 | Analytics (Plausible)  | `frontend/src/components/analytics.tsx` |

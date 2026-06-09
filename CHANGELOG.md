@@ -7,6 +7,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Lessons page** (`/lessons`) — full CRUD frontend mirror of Decisions with
+  list, create, edit and delete.
+- **API Keys UI** (`/api-keys`) — frontend page for admins/owners to mint and
+  revoke org-scoped programmatic keys; raw key shown once in a toast.
+- **Demo seed** — `DemoSeedService` auto-creates sample knowledge, decisions,
+  lessons and graph links when a new organisation is created so first-time users
+  see value immediately.
+- **Reflect input limit** — 15,000 character cap on Reflect text input with a
+  live counter and a human-readable error message.
+- **Auth redirect fix** — Supabase `emailRedirectTo` now points to `/dashboard`
+  instead of `/`.
+- **Framer Motion animations** — reusable `FadeIn`, `StaggerContainer` and
+  `StaggerItem` wrappers; fade-in transitions across all app pages.
+- **Skeleton loading states** — `SkeletonCard` replaces spinners on Dashboard,
+  Decisions, Lessons, Search, Reflect, API Keys and Graph pages.
+- **Toast system** — global `ToastProvider` + `useToast()` hook with
+  success/error/info toasts on all mutations (create, update, delete, copy key).
+- **Landing page redesign** — CSS product mockups (Dashboard, Search, Reflect
+  with real demo data), scroll-triggered Framer Motion animations, quote
+  section, gradient hero and a mini graph SVG preview.
+- **Mobile responsiveness** — burger menu in Nav, hidden landing mockups on
+  small screens, responsive SVG graph, truncated selectors and adaptive layouts.
+- **Graph page overhaul** — fullscreen mode (Fullscreen API), mouse-wheel zoom,
+  drag pan, reset view controls, hover highlighting of connected nodes/edges,
+  HTML tooltips with node type, label and content preview. Backend `/graph`
+  now returns a `content` field for each node.
+- **Supabase build-time fallback** — `supabase.ts` creates a localhost fallback
+  client when env vars are missing so `next build` no longer crashes during
+  prerender without `NEXT_PUBLIC_SUPABASE_URL`.
 - Public marketing landing page (`/`) with hero, features and how-it-works,
   plus Open Graph / Twitter link previews (dynamic OG image), an app favicon,
   and richer SEO metadata — so shared links render well on social media.
@@ -60,6 +89,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - CORS is now restricted to a configurable allow-list (`CORS_ORIGINS`) instead
   of `*`; when unset the API reflects the request origin without credentials
   (safe for header-based auth) and warns in production.
+- Card, Button and other UI primitives now have hover/active micro-interactions
+  (border glow, scale, shadow) for a more polished feel.
 
 ### Security
 - Rotated `SECRET_KEY` in the production environment to a strong random value.

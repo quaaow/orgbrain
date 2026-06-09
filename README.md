@@ -64,12 +64,19 @@ consumed by both humans and AI agents.
   stored in Qdrant; org-scoped cosine similarity retrieval.
 - **AI Reflect pipeline** — chunk text → LLM extraction (via OpenRouter) →
   near-duplicate detection → human review (approve / reject / discard) → apply
-  into the knowledge base.
+  into the knowledge base. Input capped at 15,000 characters with a live counter.
 - **Knowledge graph** — typed directed edges between knowledge / decisions /
-  lessons, with a `/graph` endpoint and an interactive frontend visualisation.
-- **Audit logging**, **per-org rate limiting**, **CORS allow-list**, **API keys**
-  for programmatic access, **Sentry** error monitoring, and **OpenAPI/Swagger**
-  docs out of the box.
+  lessons, with a `/graph` endpoint and an interactive frontend visualisation
+  (fullscreen, zoom/pan, hover highlighting, tooltips with content preview).
+- **API keys** — org-scoped programmatic access (`X-Api-Key`), minted and revoked
+  via the frontend (`/api-keys`) or API (admin only).
+- **Demo seed** — new organisations automatically get sample knowledge, decisions,
+  lessons and links so first-time users see value immediately.
+- **Audit logging**, **per-org rate limiting**, **CORS allow-list**,
+  **Sentry** error monitoring, and **OpenAPI/Swagger** docs out of the box.
+- **Polished frontend** — Framer Motion animations, skeleton loading states,
+  toast notifications, mobile-responsive layout, and a redesigned landing page
+  with product screenshots and scroll-triggered animations.
 - **Public landing page** with SEO/Open Graph previews, Terms/Privacy pages, and
   optional **Plausible** analytics (cookieless).
 
@@ -77,7 +84,7 @@ consumed by both humans and AI agents.
 
 | Layer        | Technology                                                              |
 | ------------ | ----------------------------------------------------------------------- |
-| Frontend     | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4          |
+| Frontend     | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4, Framer Motion |
 | Backend      | NestJS 11, TypeScript, TypeORM 0.3                                       |
 | Database     | PostgreSQL (Supabase, PgBouncer pooler)                                 |
 | Vector store | Qdrant Cloud (collection per env via `QDRANT_COLLECTION`, 384-dim cosine) |
@@ -108,11 +115,12 @@ orgbrain/
     └── src/
         ├── app/
         │   ├── (marketing)/  # public: /, /terms, /privacy
-        │   ├── (app)/        # authenticated: /dashboard, /search, …
+        │   ├── (app)/        # authenticated: /dashboard, /search, /graph, …
         │   ├── login/
-        │   └── layout.tsx    # root layout, SEO metadata, analytics
-        ├── components/       # shell, nav, session provider, UI primitives
-        └── lib/                # api client, supabase client, shared types
+        │   └── layout.tsx    # root layout, SEO metadata, analytics, toast provider
+        ├── components/       # shell, nav, session provider, UI primitives,
+        │                     # motion wrappers, toast system, skeleton loaders
+        └── lib/              # api client, supabase client, shared types
 ```
 
 ## Quick start (3 minutes)
@@ -210,8 +218,10 @@ Frontend environment variables (all `NEXT_PUBLIC_*`, inlined at build time):
 | `/search`     | Authenticated | Semantic search + knowledge list     |
 | `/decisions`  | Authenticated | Decision log                         |
 | `/reflect`    | Authenticated | AI Reflect pipeline + review inbox     |
+| `/lessons`    | Authenticated | Lesson log                            |
 | `/graph`      | Authenticated | Knowledge graph visualisation        |
 | `/members`    | Authenticated | Invite / role / remove members       |
+| `/api-keys`   | Authenticated | Mint / revoke org-scoped API keys (admin only) |
 
 ## Deployment
 
