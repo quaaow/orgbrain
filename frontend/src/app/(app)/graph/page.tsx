@@ -39,9 +39,12 @@ export default function GraphPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<{ left: number; top: number } | null>(null);
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [nodePositions, setNodePositions] = useState<Map<string, { x: number; y: number }>>(new Map());
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const dragOffset = useRef({ x: 0, y: 0 });
 
   const load = useCallback(async () => {
     if (!activeOrgId) return;
@@ -65,7 +68,12 @@ export default function GraphPage() {
     const pos: Positioned[] = (data?.nodes ?? []).map((n) => {
       const idx = cols[n.type]++;
       const colIndex = colOrder.indexOf(n.type);
-      return { ...n, x: LEFT + colIndex * COL_W, y: TOP + idx * ROW_H };
+      const override = nodePositions.get(n.id);
+      return {
+        ...n,
+        x: override?.x ?? LEFT + colIndex * COL_W,
+        y: override?.y ?? TOP + idx * ROW_H,
+      };
     });
     const map = new Map(pos.map((p) => [p.id, p]));
     const maxRows = Math.max(1, cols.knowledge, cols.decision, cols.lesson);
@@ -75,7 +83,7 @@ export default function GraphPage() {
       height: TOP + maxRows * ROW_H + 30,
       width: LEFT + 2 * COL_W + 80,
     };
-  }, [data]);
+  }, [data, nodePositions]);
 
   const hoveredNode = useMemo(
     () => positioned.find((n) => n.id === hoveredNodeId) ?? null,
@@ -101,8 +109,8 @@ export default function GraphPage() {
 
   // Zoom / Pan state
   const [viewBox, setViewBox] = useState<ViewBox>({ x: 0, y: 0, w: width, h: height });
-  const isDragging = useRef(false);
-  const dragStart = useRef({ x: 0, y: 0, vbX: 0, vbY: 0 });
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0, vbX: 0, vbY: 0 });
 
   useEffect(() => {
     setViewBox({ x: 0, y: 0, w: width, h: height });
@@ -127,33 +135,68 @@ export default function GraphPage() {
   );
 
   const resetView = useCallback(() => {
+    setNodePositions(new Map());
     setViewBox({ x: 0, y: 0, w: width, h: height });
   }, [width, height]);
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
+  const screenToSvg = useCallback(
+    (clientX: number, clientY: number) => {
       const svg = svgRef.current;
-      if (!svg) return;
+      if (!svg) return { x: 0, y: 0 };
       const rect = svg.getBoundingClientRect();
-      const pt = svg.createSVGPoint();
-      pt.x = e.clientX - rect.left;
-      pt.y = e.clientY - rect.top;
-      const svgP = pt.matrixTransform(svg.getScreenCTM()?.inverse());
-      const factor = e.deltaY > 0 ? 1.1 : 0.9;
-      zoom(factor, svgP.x, svgP.y);
+      const scaleX = viewBox.w / rect.width;
+      const scaleY = viewBox.h / rect.height;
+      return {
+        x: viewBox.x + (clientX - rect.left) * scaleX,
+        y: viewBox.y + (clientY - rect.top) * scaleY,
+      };
     },
-    [zoom],
+    [viewBox],
   );
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    isDragging.current = true;
-    dragStart.current = { x: e.clientX, y: e.clientY, vbX: viewBox.x, vbY: viewBox.y };
-  }, [viewBox]);
+  // Wheel zoom with passive: false to prevent page scroll
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      const scaleX = viewBox.w / rect.width;
+      const scaleY = viewBox.h / rect.height;
+      const x = viewBox.x + (e.clientX - rect.left) * scaleX;
+      const y = viewBox.y + (e.clientY - rect.top) * scaleY;
+      const factor = e.deltaY > 0 ? 1.1 : 0.9;
+      zoom(factor, x, y);
+    };
+    svg.addEventListener('wheel', handler, { passive: false });
+    return () => svg.removeEventListener('wheel', handler);
+  }, [zoom, viewBox]);
+
+  // Pan handlers (canvas drag)
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (draggingNodeId) return;
+      isPanning.current = true;
+      panStart.current = { x: e.clientX, y: e.clientY, vbX: viewBox.x, vbY: viewBox.y };
+    },
+    [viewBox, draggingNodeId],
+  );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!isDragging.current) return;
+      if (draggingNodeId && svgRef.current) {
+        const svgP = screenToSvg(e.clientX, e.clientY);
+        setNodePositions((prev) => {
+          const next = new Map(prev);
+          next.set(draggingNodeId, {
+            x: svgP.x - dragOffset.current.x,
+            y: svgP.y - dragOffset.current.y,
+          });
+          return next;
+        });
+        return;
+      }
+      if (!isPanning.current) return;
       const svg = svgRef.current;
       if (!svg) return;
       const rect = svg.getBoundingClientRect();
@@ -161,16 +204,28 @@ export default function GraphPage() {
       const scaleY = viewBox.h / rect.height;
       setViewBox((prev) => ({
         ...prev,
-        x: dragStart.current.vbX - (e.clientX - dragStart.current.x) * scaleX,
-        y: dragStart.current.vbY - (e.clientY - dragStart.current.y) * scaleY,
+        x: panStart.current.vbX - (e.clientX - panStart.current.x) * scaleX,
+        y: panStart.current.vbY - (e.clientY - panStart.current.y) * scaleY,
       }));
     },
-    [viewBox],
+    [viewBox, draggingNodeId, screenToSvg],
   );
 
   const handleMouseUp = useCallback(() => {
-    isDragging.current = false;
+    isPanning.current = false;
+    setDraggingNodeId(null);
   }, []);
+
+  // Node drag handlers
+  const handleNodeMouseDown = useCallback(
+    (e: React.MouseEvent, n: Positioned) => {
+      e.stopPropagation();
+      const svgP = screenToSvg(e.clientX, e.clientY);
+      dragOffset.current = { x: svgP.x - n.x, y: svgP.y - n.y };
+      setDraggingNodeId(n.id);
+    },
+    [screenToSvg],
+  );
 
   // Connected edges and nodes for hovered node
   const { connectedEdgeIds, connectedNodeIds } = useMemo(() => {
@@ -211,17 +266,19 @@ export default function GraphPage() {
 
   const handleNodeEnter = useCallback(
     (n: Positioned) => {
+      if (draggingNodeId) return;
       setHoveredNodeId(n.id);
       const pos = computeTooltipPos(n.x, n.y);
       setTooltipPos(pos);
     },
-    [computeTooltipPos],
+    [computeTooltipPos, draggingNodeId],
   );
 
   const handleNodeLeave = useCallback(() => {
+    if (draggingNodeId) return;
     setHoveredNodeId(null);
     setTooltipPos(null);
-  }, []);
+  }, [draggingNodeId]);
 
   // Recalculate tooltip position on zoom/pan while hovered
   useEffect(() => {
@@ -332,7 +389,6 @@ export default function GraphPage() {
               viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
               className={`w-full cursor-grab active:cursor-grabbing ${isFullscreen ? 'h-screen' : ''}`}
               style={{ minWidth: Math.min(width, 600), height: isFullscreen ? '100vh' : height }}
-              onWheel={handleWheel}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -351,8 +407,6 @@ export default function GraphPage() {
                 if (!s || !t) return null;
                 const isConnected = hoveredNodeId && connectedEdgeIds.has(e.id);
                 const isDimmed = hoveredNodeId && !connectedEdgeIds.has(e.id);
-                const mx = (s.x + t.x) / 2;
-                const my = (s.y + t.y) / 2;
                 return (
                   <motion.g
                     key={e.id}
@@ -369,20 +423,6 @@ export default function GraphPage() {
                       strokeWidth={isConnected ? 2.5 : 1.5}
                       style={{ transition: 'all 0.2s', opacity: isDimmed ? 0.15 : 1 }}
                     />
-                    <text
-                      x={mx}
-                      y={my - 5}
-                      textAnchor="middle"
-                      className="select-none"
-                      style={{
-                        fontSize: 9,
-                        fill: isConnected ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)',
-                        transition: 'all 0.2s',
-                        opacity: isDimmed ? 0.15 : 1,
-                      }}
-                    >
-                      {e.relation}
-                    </text>
                   </motion.g>
                 );
               })}
@@ -405,6 +445,7 @@ export default function GraphPage() {
                     className="cursor-pointer"
                     onMouseEnter={() => handleNodeEnter(n)}
                     onMouseLeave={handleNodeLeave}
+                    onMouseDown={(e) => handleNodeMouseDown(e, n)}
                   >
                     {/* Glow ring on hover */}
                     {isHovered && (
@@ -449,7 +490,7 @@ export default function GraphPage() {
             </svg>
 
             {/* HTML Tooltip */}
-            {hoveredNode && tooltipStyle && (
+            {hoveredNode && tooltipStyle && !draggingNodeId && (
               <div
                 className="pointer-events-none absolute z-10 w-[260px] rounded-lg border border-white/10 bg-[#0f0f12]/95 p-3 shadow-2xl backdrop-blur-md"
                 style={tooltipStyle}
@@ -479,7 +520,7 @@ export default function GraphPage() {
 
             {/* Hint */}
             <div className="pointer-events-none absolute bottom-3 left-3 text-[10px] text-white/30">
-              Scroll to zoom · Drag to pan
+              Scroll to zoom · Drag canvas to pan · Drag nodes to rearrange
             </div>
           </Card>
         </FadeIn>
@@ -507,7 +548,7 @@ export default function GraphPage() {
                       <span className="max-w-[150px] truncate sm:max-w-[200px]">
                         {s?.label ?? e.source.slice(0, 8)}
                       </span>
-                      <span className="text-white/40">—{e.relation}→</span>
+                      <span className="text-white/40">—{e.relation.replace(/_/g, ' ')}→</span>
                       <Badge>{t?.type ?? e.target_type}</Badge>
                       <span className="max-w-[150px] truncate sm:max-w-[200px]">
                         {t?.label ?? e.target.slice(0, 8)}
