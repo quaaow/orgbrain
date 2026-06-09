@@ -196,14 +196,20 @@ export class ReflectionService {
       const llmStart = Date.now();
       // Extract all chunks in parallel — free-tier models are slow, so
       // parallelism is the biggest win for multi-chunk texts.
-      const chunkResults = await Promise.all(
+      // Use allSettled so one failed chunk doesn't kill the whole run.
+      const chunkResults = await Promise.allSettled(
         chunks.map((chunk) => this.extractChunk(chunk)),
       );
       this.logger.log(
         `LLM extraction done in ${Date.now() - llmStart}ms (${chunks.length} chunks)`,
       );
 
-      for (const data of chunkResults) {
+      for (const result of chunkResults) {
+        if (result.status === 'rejected') {
+          this.logger.warn(`Chunk extraction failed: ${String(result.reason)}`);
+          continue;
+        }
+        const data = result.value;
         if (!data) {
           continue;
         }

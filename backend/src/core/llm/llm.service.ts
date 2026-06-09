@@ -3,9 +3,9 @@ import axios, { AxiosInstance, isAxiosError } from 'axios';
 import { AppConfigService } from '../../config/app-config.service';
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
-const TIMEOUT_MS = 60_000;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2_000;
+const TIMEOUT_MS = 120_000;
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 3_000;
 
 export interface ChatMessage {
   role: string;
@@ -110,7 +110,15 @@ export class LlmService {
           throw new Error(`OpenRouter HTTP error ${response.status}`);
         }
 
-        return response.data.choices[0].message.content as string;
+        const choice = response.data?.choices?.[0];
+        if (!choice?.message?.content) {
+          this.logger.error(
+            `OpenRouter returned empty choices: ${JSON.stringify(response.data)}`,
+          );
+          throw new Error('OpenRouter returned empty response');
+        }
+
+        return choice.message.content as string;
       } catch (error) {
         if (isAxiosError(error)) {
           this.logger.error(`OpenRouter request error: ${error.message}`);
