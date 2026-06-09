@@ -88,6 +88,41 @@ Set these **per project** in the Supabase dashboard
 > Auth emails and OAuth redirects use the **frontend** URL of the matching stack.
 > If dev Railway still points at the prod Supabase project, signups from the dev
 > frontend will land in the **production** database — fix the env vars below.
+>
+> **Important:** If confirmation emails link to `localhost` instead of your domain,
+> Supabase is falling back to the default Site URL. Verify that `Site URL` and
+> `Redirect URLs` above match your deployed frontend, and that `NEXT_PUBLIC_SITE_URL`
+> (or `window.location.origin` fallback) in the signup code sends the correct URL.
+
+### Supabase Auth → OAuth Provider (GitHub)
+
+OrgBrain supports **GitHub** OAuth. Enable it in the Supabase dashboard
+(Authentication → Providers) and fill in the credentials.
+
+> Use the **Supabase project URL** (`<project-ref>.supabase.co`) as the callback
+> domain — Supabase handles the exchange and then redirects back to your frontend
+> (`/auth/callback`). No backend code changes are required.
+
+#### GitHub OAuth App
+
+1. Открой [github.com](https://github.com) → кликни аватар (справа сверху) → **Settings**.
+2. В самом низу левого меню → **Developer settings**.
+3. Выбери **OAuth Apps** → зелёная кнопка **New OAuth App**.
+4. Заполни поля:
+   - **Application name**: OrgBrain (или что удобно)
+   - **Homepage URL**: `https://orgbrain-sable.vercel.app`
+   - **Authorization callback URL**: `https://thmrzulqsahxzkvqqvxu.supabase.co/auth/v1/callback`
+     (для dev проекта: `https://pgjnqchstqqjlnnkrugp.supabase.co/auth/v1/callback`)
+5. Нажми **Register application**.
+6. На открывшейся странице скопируй:
+   - **Client ID** — длинная строка, начинается примерно с `Iv1...` или `Ov2...`
+   - Нажми **Generate a new client secret** → скопируй секрет (показывается один раз)
+7. Вставь их в Supabase Dashboard → Authentication → Providers → **GitHub** (включи тумблер).
+
+**Important:** In Authentication → Settings, keep **Enable automatic reuse of
+existing accounts** (`gotrue.enable_auto_sign_in`) ON if you want users who
+previously signed up with email to be automatically linked when they use OAuth
+with the same address. Otherwise they may end up with two separate accounts.
 
 Keys (`anon` / publishable) and the pooler `DATABASE_URL` live in each
 project's dashboard under **Settings → API** and **Settings → Database**.
@@ -215,6 +250,7 @@ must be set manually in the dashboard (see above).
    NEXT_PUBLIC_API_URL=http://localhost:8000
    NEXT_PUBLIC_SUPABASE_URL=https://pgjnqchstqqjlnnkrugp.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=<orgbrain-dev anon key>
+   NEXT_PUBLIC_SITE_URL=http://localhost:3000
    # Leave NEXT_PUBLIC_SENTRY_DSN and NEXT_PUBLIC_PLAUSIBLE_DOMAIN empty locally
    ```
 
