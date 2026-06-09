@@ -74,6 +74,12 @@ Production is configured via platform env vars, not committed `.env` files.
 
 Migrations apply automatically on boot (`migrationsRun`).
 
+> **Sentry source maps.** The `@sentry/nextjs` plugin uploads source maps during
+> the build so stack traces in Sentry point to original TypeScript lines. This
+> requires `SENTRY_ORG`, `SENTRY_PROJECT` and `SENTRY_AUTH_TOKEN` to be set as
+> Vercel env vars. Without them the build warns but still succeeds — errors are
+> captured, just without line-mapping.
+
 ### Frontend (Vercel)
 
 Project `rootDirectory` is `frontend/`. All `NEXT_PUBLIC_*` vars are baked in at
@@ -86,6 +92,9 @@ build time — changing them requires a redeploy.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | production anon key |
 | `NEXT_PUBLIC_SITE_URL` | `https://orgbrain-sable.vercel.app` |
 | `NEXT_PUBLIC_SENTRY_DSN` | frontend Sentry DSN |
+| `SENTRY_ORG` | Sentry org slug (for source-map upload) |
+| `SENTRY_PROJECT` | Sentry project slug (for source-map upload) |
+| `SENTRY_AUTH_TOKEN` | Sentry auth token with `org:read` + `project:releases` |
 | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | `orgbrain-sable.vercel.app` |
 
 Set the same `NEXT_PUBLIC_*` vars for **Preview** if you use PR preview

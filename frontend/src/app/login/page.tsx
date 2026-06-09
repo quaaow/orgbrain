@@ -90,6 +90,14 @@ export default function LoginPage() {
             <Button type="submit" disabled={busy} className="w-full">
               {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Sign up'}
             </Button>
+            {mode === 'login' && (
+              <Link
+                href="/forgot-password"
+                className="block text-center text-xs text-white/40 transition-colors hover:text-white/70"
+              >
+                Forgot password?
+              </Link>
+            )}
           </form>
           <button
             onClick={() => {
