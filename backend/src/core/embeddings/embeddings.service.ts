@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 export const EMBEDDING_MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
 export const EMBEDDING_DIM = 384;
@@ -15,9 +15,22 @@ type FeatureExtractionPipeline = (
  * first use and reused for all subsequent calls.
  */
 @Injectable()
-export class EmbeddingsService {
+export class EmbeddingsService implements OnModuleInit {
   private readonly logger = new Logger(EmbeddingsService.name);
   private pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
+
+  async onModuleInit() {
+    // Warm-up the model so the first real request doesn't block the event loop.
+    try {
+      this.logger.log('Pre-loading embedding model…');
+      await this.createEmbedding('warm-up');
+      this.logger.log('Embedding model ready');
+    } catch (err) {
+      this.logger.error(
+        `Failed to pre-load embedding model: ${(err as Error).message}`,
+      );
+    }
+  }
 
   private getPipeline(): Promise<FeatureExtractionPipeline> {
     if (!this.pipelinePromise) {
